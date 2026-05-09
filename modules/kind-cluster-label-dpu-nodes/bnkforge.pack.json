@@ -7,8 +7,16 @@
     "category": "k8s",
     "description": "Label two kind worker nodes app=f5-tmm and taint them dpu=true:NoSchedule so FLO/TMM scheduling matches the f5-bnk-udf lab pattern. Required for FLO to schedule TMM pods on a kind cluster.",
     "provider": null,
-    "supported_platforms": ["generic_onprem"],
-    "tags": ["kind", "dpu", "tmm", "labels", "taints"]
+    "supported_platforms": [
+      "generic_onprem"
+    ],
+    "tags": [
+      "kind",
+      "dpu",
+      "tmm",
+      "labels",
+      "taints"
+    ]
   },
   "deployment_pack": {
     "engine": "opentofu",
@@ -31,22 +39,25 @@
     "optional": []
   },
   "inputs": {
-    "required": [
+    "required": [],
+    "optional": [
       {
         "name": "kubeconfig",
         "type": "string",
-        "description": "Base64-encoded kubeconfig for the kind cluster. Wired by the blueprint from kind-cluster-create / kind-cluster-register.",
+        "description": "Base64-encoded kubeconfig for the kind cluster. Wired by the blueprint from kind-cluster-create / kind-cluster-register. Auto-wired by the bnk-forge dependency graph from kind-cluster-create or kind-cluster-register.",
         "source": "user",
-        "sensitive": true
-      }
-    ],
-    "optional": [
+        "sensitive": true,
+        "default": ""
+      },
       {
         "name": "dpu_node_names",
         "type": "list(string)",
         "description": "Worker nodes to label as DPU-equivalent.",
         "source": "user",
-        "default": ["bnk-worker2", "bnk-worker3"]
+        "default": [
+          "bnk-worker2",
+          "bnk-worker3"
+        ]
       },
       {
         "name": "tmm_label_key",
@@ -87,9 +98,21 @@
   },
   "outputs": {
     "key_outputs": [
-      { "name": "labeled_nodes", "type": "list(string)", "description": "Node names that received the TMM label and DPU taint." },
-      { "name": "tmm_label", "type": "string", "description": "Applied label in key=value form." },
-      { "name": "dpu_taint", "type": "string", "description": "Applied taint in key=value:effect form." }
+      {
+        "name": "labeled_nodes",
+        "type": "list(string)",
+        "description": "Node names that received the TMM label and DPU taint."
+      },
+      {
+        "name": "tmm_label",
+        "type": "string",
+        "description": "Applied label in key=value form."
+      },
+      {
+        "name": "dpu_taint",
+        "type": "string",
+        "description": "Applied taint in key=value:effect form."
+      }
     ]
   },
   "credentials": {

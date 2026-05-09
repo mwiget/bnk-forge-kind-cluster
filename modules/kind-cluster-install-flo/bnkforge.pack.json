@@ -7,8 +7,16 @@
     "category": "bnk",
     "description": "Install the F5 Lifecycle Operator on a kind cluster via Helm. Materializes the FAR pull secret from the far_auth_key project secret and templates the FLO license JWT from the jwt_token project secret.",
     "provider": null,
-    "supported_platforms": ["generic_onprem"],
-    "tags": ["kind", "flo", "f5-lifecycle-operator", "bnk", "helm"]
+    "supported_platforms": [
+      "generic_onprem"
+    ],
+    "tags": [
+      "kind",
+      "flo",
+      "f5-lifecycle-operator",
+      "bnk",
+      "helm"
+    ]
   },
   "deployment_pack": {
     "engine": "opentofu",
@@ -29,41 +37,134 @@
   },
   "dependencies": {
     "required": [
-      { "module": "modules/kind-cluster-install-cert-manager", "reason": "FLO references the BNK CA ClusterIssuer that this module creates." }
+      {
+        "module": "modules/kind-cluster-install-cert-manager",
+        "reason": "FLO references the BNK CA ClusterIssuer that this module creates."
+      }
     ],
     "optional": []
   },
   "inputs": {
-    "required": [
+    "required": [],
+    "optional": [
       {
         "name": "kubeconfig",
         "type": "string",
-        "description": "Base64-encoded kubeconfig for the kind cluster.",
+        "description": "Base64-encoded kubeconfig for the kind cluster. Auto-wired by the bnk-forge dependency graph from kind-cluster-create or kind-cluster-register.",
         "source": "user",
-        "sensitive": true
+        "sensitive": true,
+        "default": ""
+      },
+      {
+        "name": "far_auth_key",
+        "type": "string",
+        "default": "",
+        "source": "user",
+        "sensitive": true,
+        "description": "Extracted contents of f5-far-auth-key.tgz. Auto-injected by the variable assembler when a project secret of the same name is present."
+      },
+      {
+        "name": "jwt_token",
+        "type": "string",
+        "default": "",
+        "source": "user",
+        "sensitive": true,
+        "description": "F5 BNK subscription JWT. Auto-injected by the variable assembler when a project secret of the same name is present."
+      },
+      {
+        "name": "flo_namespace",
+        "type": "string",
+        "default": "f5-operators",
+        "source": "user",
+        "description": "FLO namespace."
+      },
+      {
+        "name": "cluster_issuer_name",
+        "type": "string",
+        "default": "bnk-ca-cluster-issuer",
+        "source": "user",
+        "description": "BNK CA ClusterIssuer name. Wired from cert-manager."
+      },
+      {
+        "name": "flo_chart_ref",
+        "type": "string",
+        "default": "oci://repo.f5.com/charts/f5-lifecycle-operator",
+        "source": "user",
+        "description": "FLO chart OCI reference."
+      },
+      {
+        "name": "flo_chart_version",
+        "type": "string",
+        "default": "v2.9.27-0.2.10",
+        "source": "user",
+        "description": "FLO chart version."
+      },
+      {
+        "name": "container_platform",
+        "type": "string",
+        "default": "Generic",
+        "source": "user",
+        "description": "FLO containerPlatform value."
+      },
+      {
+        "name": "service_ip_family",
+        "type": "string",
+        "default": "ipv4",
+        "source": "user",
+        "description": "FLO ServiceIPFamily value."
+      },
+      {
+        "name": "license_friendly_name",
+        "type": "string",
+        "default": "BNK on kind",
+        "source": "user",
+        "description": "Friendly name advertised by FLO's license subsystem."
+      },
+      {
+        "name": "license_operation_mode",
+        "type": "string",
+        "default": "connected",
+        "source": "user",
+        "description": "License operation mode: connected | disconnected."
+      },
+      {
+        "name": "wait_for_deployment",
+        "type": "bool",
+        "default": true,
+        "source": "user",
+        "description": "Wait for FLO pods to become Ready."
+      },
+      {
+        "name": "timeout",
+        "type": "number",
+        "default": 600,
+        "source": "user",
+        "description": "Helm release timeout (seconds)."
       }
-    ],
-    "optional": [
-      { "name": "far_auth_key", "type": "string", "default": "", "source": "user", "sensitive": true, "description": "Extracted contents of f5-far-auth-key.tgz. Auto-injected by the variable assembler when a project secret of the same name is present." },
-      { "name": "jwt_token", "type": "string", "default": "", "source": "user", "sensitive": true, "description": "F5 BNK subscription JWT. Auto-injected by the variable assembler when a project secret of the same name is present." },
-      { "name": "flo_namespace", "type": "string", "default": "f5-operators", "source": "user", "description": "FLO namespace." },
-      { "name": "cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "user", "description": "BNK CA ClusterIssuer name. Wired from cert-manager." },
-      { "name": "flo_chart_ref", "type": "string", "default": "oci://repo.f5.com/charts/f5-lifecycle-operator", "source": "user", "description": "FLO chart OCI reference." },
-      { "name": "flo_chart_version", "type": "string", "default": "v2.9.27-0.2.10", "source": "user", "description": "FLO chart version." },
-      { "name": "container_platform", "type": "string", "default": "Generic", "source": "user", "description": "FLO containerPlatform value." },
-      { "name": "service_ip_family", "type": "string", "default": "ipv4", "source": "user", "description": "FLO ServiceIPFamily value." },
-      { "name": "license_friendly_name", "type": "string", "default": "BNK on kind", "source": "user", "description": "Friendly name advertised by FLO's license subsystem." },
-      { "name": "license_operation_mode", "type": "string", "default": "connected", "source": "user", "description": "License operation mode: connected | disconnected." },
-      { "name": "wait_for_deployment", "type": "bool", "default": true, "source": "user", "description": "Wait for FLO pods to become Ready." },
-      { "name": "timeout", "type": "number", "default": 600, "source": "user", "description": "Helm release timeout (seconds)." }
     ]
   },
   "outputs": {
     "key_outputs": [
-      { "name": "flo_namespace", "type": "string", "description": "Namespace where FLO runs." },
-      { "name": "flo_release_name", "type": "string", "description": "FLO Helm release name." },
-      { "name": "flo_release_version", "type": "string", "description": "Installed FLO chart version." },
-      { "name": "flo_cluster_issuer_name", "type": "string", "description": "ClusterIssuer FLO bound to." }
+      {
+        "name": "flo_namespace",
+        "type": "string",
+        "description": "Namespace where FLO runs."
+      },
+      {
+        "name": "flo_release_name",
+        "type": "string",
+        "description": "FLO Helm release name."
+      },
+      {
+        "name": "flo_release_version",
+        "type": "string",
+        "description": "Installed FLO chart version."
+      },
+      {
+        "name": "flo_cluster_issuer_name",
+        "type": "string",
+        "description": "ClusterIssuer FLO bound to."
+      }
     ]
   },
   "credentials": {

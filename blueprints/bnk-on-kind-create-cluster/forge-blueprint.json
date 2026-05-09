@@ -7,7 +7,9 @@
     "description": "Provision a kind cluster from scratch and install BNK on it: cluster create, DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
   },
   "compatibility": {
-    "supported_platform_profiles": ["generic_onprem"],
+    "supported_platform_profiles": [
+      "generic_onprem"
+    ],
     "required_capabilities": []
   },
   "category": "infrastructure",
@@ -19,7 +21,14 @@
   "difficulty": "intermediate",
   "maturity": "reference",
   "bnk_version": "2.2",
-  "tags": ["kind", "kubernetes", "local", "bnk", "poc", "developer"],
+  "tags": [
+    "kind",
+    "kubernetes",
+    "local",
+    "bnk",
+    "poc",
+    "developer"
+  ],
   "outcomes": [
     "kind cluster created on the local Docker daemon (or a remote host via DOCKER_HOST)",
     "Two worker nodes labeled for TMM scheduling (DPU emulation)",
@@ -33,7 +42,7 @@
     {
       "type": "project_secret",
       "name": "far_auth_key",
-      "description": "Extracted contents of f5-far-auth-key.tgz (base64-encoded JSON service account key). Stored encrypted; never serialized into terraform.tfvars.json or task output."
+      "description": "Run `tar zxOf ~/far/f5-far-auth-key.tgz` on a host that has the tarball, then paste the output here. Do NOT import the raw .tgz file — bnk-forge expects the extracted text content (a base64-encoded JSON service account key). Stored encrypted; never serialized into terraform.tfvars.json or task output."
     },
     {
       "type": "project_secret",
@@ -130,10 +139,10 @@
       "description": "Label two workers app=f5-tmm and taint them dpu=true:NoSchedule (DPU emulation for kind).",
       "module": "modules/kind-cluster-label-dpu-nodes",
       "version": "1.0.0",
-      "depends_on": ["cluster-create"],
-      "inputs": {
-        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}"
-      }
+      "depends_on": [
+        "cluster-create"
+      ],
+      "inputs": {}
     },
     {
       "id": "cert-manager",
@@ -141,10 +150,10 @@
       "description": "Install cert-manager + the BNK CA ClusterIssuer chain.",
       "module": "modules/kind-cluster-install-cert-manager",
       "version": "1.0.0",
-      "depends_on": ["label-dpu-nodes"],
-      "inputs": {
-        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}"
-      }
+      "depends_on": [
+        "label-dpu-nodes"
+      ],
+      "inputs": {}
     },
     {
       "id": "flo",
@@ -152,11 +161,10 @@
       "description": "Install FLO with FAR pull secret + JWT license.",
       "module": "modules/kind-cluster-install-flo",
       "version": "1.0.0",
-      "depends_on": ["cert-manager"],
-      "inputs": {
-        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}",
-        "cluster_issuer_name": "${modules.cert-manager.outputs.cluster_issuer_name}"
-      }
+      "depends_on": [
+        "cert-manager"
+      ],
+      "inputs": {}
     },
     {
       "id": "cneinstance",
@@ -164,12 +172,10 @@
       "description": "Apply the CNEInstance CR with kind-appropriate defaults.",
       "module": "modules/kind-cluster-cneinstall",
       "version": "1.0.0",
-      "depends_on": ["flo"],
-      "inputs": {
-        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}",
-        "flo_namespace": "${modules.flo.outputs.flo_namespace}",
-        "flo_cluster_issuer_name": "${modules.flo.outputs.flo_cluster_issuer_name}"
-      }
+      "depends_on": [
+        "flo"
+      ],
+      "inputs": {}
     },
     {
       "id": "license",
@@ -177,11 +183,10 @@
       "description": "Apply the BNK License CR using the jwt_token project secret.",
       "module": "modules/kind-cluster-license",
       "version": "1.0.0",
-      "depends_on": ["cneinstance"],
-      "inputs": {
-        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}",
-        "license_namespace": "${modules.flo.outputs.flo_namespace}"
-      }
+      "depends_on": [
+        "cneinstance"
+      ],
+      "inputs": {}
     }
   ]
 }

@@ -7,8 +7,14 @@
     "category": "bnk",
     "description": "Apply a CNEInstance CR to a kind cluster with BNK-on-kind defaults: no networkAttachments, pseudoCNI/dynamicRouting off, demoMode on. Mirrors f5-bnk-udf/resources/cne-instance.yaml minus the lab-networks features.",
     "provider": null,
-    "supported_platforms": ["generic_onprem"],
-    "tags": ["kind", "cneinstance", "bnk"]
+    "supported_platforms": [
+      "generic_onprem"
+    ],
+    "tags": [
+      "kind",
+      "cneinstance",
+      "bnk"
+    ]
   },
   "deployment_pack": {
     "engine": "opentofu",
@@ -28,45 +34,162 @@
   },
   "dependencies": {
     "required": [
-      { "module": "modules/kind-cluster-install-flo", "reason": "FLO must be installed before the CNEInstance CRD is available." }
+      {
+        "module": "modules/kind-cluster-install-flo",
+        "reason": "FLO must be installed before the CNEInstance CRD is available."
+      }
     ],
     "optional": []
   },
   "inputs": {
-    "required": [
+    "required": [],
+    "optional": [
       {
         "name": "kubeconfig",
         "type": "string",
-        "description": "Base64-encoded kubeconfig.",
+        "description": "Base64-encoded kubeconfig. Auto-wired by the bnk-forge dependency graph from kind-cluster-create or kind-cluster-register.",
         "source": "user",
-        "sensitive": true
+        "sensitive": true,
+        "default": ""
+      },
+      {
+        "name": "flo_namespace",
+        "type": "string",
+        "default": "f5-operators",
+        "source": "user",
+        "description": "Namespace where the CNEInstance is applied."
+      },
+      {
+        "name": "flo_cluster_issuer_name",
+        "type": "string",
+        "default": "bnk-ca-cluster-issuer",
+        "source": "user",
+        "description": "ClusterIssuer FLO is bound to."
+      },
+      {
+        "name": "cneinstance_name",
+        "type": "string",
+        "default": "bnkgatewayclass-sample",
+        "source": "user",
+        "description": "metadata.name."
+      },
+      {
+        "name": "manifest_version",
+        "type": "string",
+        "default": "2.2.0-3.2226.0-0.0.385",
+        "source": "user",
+        "description": "spec.manifestVersion."
+      },
+      {
+        "name": "deployment_size",
+        "type": "string",
+        "default": "Small",
+        "source": "user",
+        "description": "spec.deploymentSize."
+      },
+      {
+        "name": "registry_uri",
+        "type": "string",
+        "default": "repo.f5.com",
+        "source": "user",
+        "description": "spec.registry.uri."
+      },
+      {
+        "name": "image_pull_secret",
+        "type": "string",
+        "default": "far-secret",
+        "source": "user",
+        "description": "spec.registry.imagePullSecrets[0].name."
+      },
+      {
+        "name": "gateway_api",
+        "type": "bool",
+        "default": true,
+        "source": "user",
+        "description": "spec.product.gatewayAPI."
+      },
+      {
+        "name": "whole_cluster",
+        "type": "bool",
+        "default": true,
+        "source": "user",
+        "description": "spec.wholeCluster."
+      },
+      {
+        "name": "logging_enabled",
+        "type": "bool",
+        "default": false,
+        "source": "user",
+        "description": "spec.telemetry.loggingSubsystem.enabled."
+      },
+      {
+        "name": "metric_enabled",
+        "type": "bool",
+        "default": true,
+        "source": "user",
+        "description": "spec.telemetry.metricSubsystem.enabled."
+      },
+      {
+        "name": "demo_mode",
+        "type": "bool",
+        "default": true,
+        "source": "user",
+        "description": "spec.advanced.demoMode.enabled."
+      },
+      {
+        "name": "pseudo_cni_enabled",
+        "type": "bool",
+        "default": false,
+        "source": "user",
+        "description": "spec.pseudoCNI.enabled."
+      },
+      {
+        "name": "dynamic_routing_enabled",
+        "type": "bool",
+        "default": false,
+        "source": "user",
+        "description": "spec.dynamicRouting.enabled."
+      },
+      {
+        "name": "firewall_acl_enabled",
+        "type": "bool",
+        "default": true,
+        "source": "user",
+        "description": "spec.firewallACL.enabled."
+      },
+      {
+        "name": "core_collection_enabled",
+        "type": "bool",
+        "default": false,
+        "source": "user",
+        "description": "spec.coreCollection.enabled."
+      },
+      {
+        "name": "network_attachments",
+        "type": "list(string)",
+        "default": [],
+        "source": "user",
+        "description": "spec.networkAttachments."
       }
-    ],
-    "optional": [
-      { "name": "flo_namespace", "type": "string", "default": "f5-operators", "source": "user", "description": "Namespace where the CNEInstance is applied." },
-      { "name": "flo_cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "user", "description": "ClusterIssuer FLO is bound to." },
-      { "name": "cneinstance_name", "type": "string", "default": "bnkgatewayclass-sample", "source": "user", "description": "metadata.name." },
-      { "name": "manifest_version", "type": "string", "default": "2.2.0-3.2226.0-0.0.385", "source": "user", "description": "spec.manifestVersion." },
-      { "name": "deployment_size", "type": "string", "default": "Small", "source": "user", "description": "spec.deploymentSize." },
-      { "name": "registry_uri", "type": "string", "default": "repo.f5.com", "source": "user", "description": "spec.registry.uri." },
-      { "name": "image_pull_secret", "type": "string", "default": "far-secret", "source": "user", "description": "spec.registry.imagePullSecrets[0].name." },
-      { "name": "gateway_api", "type": "bool", "default": true, "source": "user", "description": "spec.product.gatewayAPI." },
-      { "name": "whole_cluster", "type": "bool", "default": true, "source": "user", "description": "spec.wholeCluster." },
-      { "name": "logging_enabled", "type": "bool", "default": false, "source": "user", "description": "spec.telemetry.loggingSubsystem.enabled." },
-      { "name": "metric_enabled", "type": "bool", "default": true, "source": "user", "description": "spec.telemetry.metricSubsystem.enabled." },
-      { "name": "demo_mode", "type": "bool", "default": true, "source": "user", "description": "spec.advanced.demoMode.enabled." },
-      { "name": "pseudo_cni_enabled", "type": "bool", "default": false, "source": "user", "description": "spec.pseudoCNI.enabled." },
-      { "name": "dynamic_routing_enabled", "type": "bool", "default": false, "source": "user", "description": "spec.dynamicRouting.enabled." },
-      { "name": "firewall_acl_enabled", "type": "bool", "default": true, "source": "user", "description": "spec.firewallACL.enabled." },
-      { "name": "core_collection_enabled", "type": "bool", "default": false, "source": "user", "description": "spec.coreCollection.enabled." },
-      { "name": "network_attachments", "type": "list(string)", "default": [], "source": "user", "description": "spec.networkAttachments." }
     ]
   },
   "outputs": {
     "key_outputs": [
-      { "name": "cneinstance_name", "type": "string", "description": "CNEInstance metadata.name." },
-      { "name": "cneinstance_namespace", "type": "string", "description": "CNEInstance metadata.namespace." },
-      { "name": "manifest_version", "type": "string", "description": "spec.manifestVersion." }
+      {
+        "name": "cneinstance_name",
+        "type": "string",
+        "description": "CNEInstance metadata.name."
+      },
+      {
+        "name": "cneinstance_namespace",
+        "type": "string",
+        "description": "CNEInstance metadata.namespace."
+      },
+      {
+        "name": "manifest_version",
+        "type": "string",
+        "description": "spec.manifestVersion."
+      }
     ]
   },
   "credentials": {

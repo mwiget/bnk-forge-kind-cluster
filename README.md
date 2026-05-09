@@ -73,7 +73,13 @@ bnk-forge auto-registers the cluster on first scan after apply — no manual ste
 
 Both blueprints declare two `project_secret` prerequisites:
 
-- `far_auth_key` — base64-encoded contents of the F5 Artifacts Registry auth tarball (`f5-far-auth-key.tgz`). Used to materialize the `far-secret` `dockerconfigjson` Secret in `f5-operators` and `default`.
+- `far_auth_key` — the **extracted contents** of `f5-far-auth-key.tgz` (the base64-encoded JSON service account key inside the tarball), NOT the raw `.tgz` bytes. Produce it on a host that has the tarball with:
+
+  ```bash
+  tar zxOf ~/far/f5-far-auth-key.tgz
+  ```
+
+  …then paste/import the output as the project secret value. Used to materialize the `far-secret` `dockerconfigjson` Secret in `f5-operators` and `default`.
 - `jwt_token` — F5 BNK subscription JWT. Templated into FLO values and the License CR.
 
 Both are stored encrypted by bnk-forge and injected at apply time without
