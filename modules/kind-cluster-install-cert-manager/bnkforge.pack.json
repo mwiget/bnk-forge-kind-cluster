@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "module": {
+    "name": "kind_cluster_install_cert_manager",
+    "path": "modules/kind-cluster-install-cert-manager",
+    "version": "1.0.0",
+    "category": "infra",
+    "description": "Install cert-manager onto a kind cluster via the Jetstack Helm chart, plus the self-signed and bnk-ca-cluster-issuer chain BNK consumes.",
+    "provider": null,
+    "supported_platforms": ["generic_onprem"],
+    "tags": ["kind", "cert-manager", "tls", "infrastructure"]
+  },
+  "deployment_pack": {
+    "engine": "opentofu",
+    "runner_profile": "opentofu-default",
+    "working_directory": ".",
+    "entrypoints": {
+      "module_root": "."
+    },
+    "lifecycle": {
+      "supports_init": true,
+      "supports_plan": true,
+      "supports_apply": true,
+      "supports_destroy": true,
+      "supports_refresh": true,
+      "supports_drift": true
+    }
+  },
+  "dependencies": {
+    "required": [],
+    "optional": []
+  },
+  "inputs": {
+    "required": [
+      {
+        "name": "kubeconfig",
+        "type": "string",
+        "description": "Base64-encoded kubeconfig for the kind cluster.",
+        "source": "module",
+        "sensitive": true
+      }
+    ],
+    "optional": [
+      { "name": "namespace", "type": "string", "default": "cert-manager", "source": "user", "description": "Kubernetes namespace for cert-manager." },
+      { "name": "chart_version", "type": "string", "default": "v1.17.3", "source": "user", "description": "cert-manager Helm chart version." },
+      { "name": "chart_repository", "type": "string", "default": "https://charts.jetstack.io", "source": "user", "description": "Helm chart repository URL." },
+      { "name": "wait_for_deployment", "type": "bool", "default": true, "source": "user", "description": "Wait for cert-manager pods to become Ready." },
+      { "name": "timeout", "type": "number", "default": 300, "source": "user", "description": "Timeout (seconds) for the Helm release." },
+      { "name": "post_deployment_delay", "type": "number", "default": 30, "source": "user", "description": "Delay (seconds) after the Helm release to let CRDs register." },
+      { "name": "cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "user", "description": "Name of the BNK CA ClusterIssuer downstream modules consume." },
+      { "name": "selfsigned_cluster_issuer_name", "type": "string", "default": "selfsigned-cluster-issuer", "source": "user", "description": "Name of the bootstrap self-signed ClusterIssuer." },
+      { "name": "ca_certificate_name", "type": "string", "default": "bnk-ca", "source": "user", "description": "Name of the in-cluster BNK CA Certificate." },
+      { "name": "ca_secret_name", "type": "string", "default": "bnk-ca", "source": "user", "description": "Name of the Secret holding the BNK CA cert/key." }
+    ]
+  },
+  "outputs": {
+    "key_outputs": [
+      { "name": "namespace", "type": "string", "description": "Namespace where cert-manager is deployed." },
+      { "name": "crd_ready", "type": "bool", "description": "True once CRDs are registered." },
+      { "name": "cluster_issuer_name", "type": "string", "description": "BNK CA ClusterIssuer name." },
+      { "name": "helm_release_name", "type": "string", "description": "Helm release name." },
+      { "name": "helm_release_version", "type": "string", "description": "Installed chart version." }
+    ]
+  },
+  "credentials": {
+    "required": [],
+    "optional": []
+  }
+}

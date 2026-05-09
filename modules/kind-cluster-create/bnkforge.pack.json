@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "module": {
+    "name": "kind_cluster_create",
+    "path": "modules/kind-cluster-create",
+    "version": "1.0.0",
+    "category": "infra",
+    "description": "Create a kind cluster (1 cp + 4 workers, dual-stack, default CNI off) on the local Docker daemon or a remote host via DOCKER_HOST. Emits BNK cluster-registration outputs.",
+    "provider": null,
+    "supported_platforms": ["generic_onprem"],
+    "tags": ["kind", "kubernetes", "local", "cluster", "infrastructure"]
+  },
+  "deployment_pack": {
+    "engine": "opentofu",
+    "runner_profile": "opentofu-default",
+    "working_directory": ".",
+    "entrypoints": {
+      "module_root": "."
+    },
+    "lifecycle": {
+      "supports_init": true,
+      "supports_plan": true,
+      "supports_apply": true,
+      "supports_destroy": true,
+      "supports_refresh": true,
+      "supports_drift": false
+    }
+  },
+  "dependencies": {
+    "required": [],
+    "optional": []
+  },
+  "inputs": {
+    "required": [],
+    "optional": [
+      {
+        "name": "cluster_name",
+        "type": "string",
+        "description": "Name of the kind cluster to create.",
+        "source": "user",
+        "default": "bnk"
+      },
+      {
+        "name": "ssh_user",
+        "type": "string",
+        "description": "Optional SSH user from a bare-metal credential template; combined with ssh_host into DOCKER_HOST=ssh://user@host. Empty = use local Docker socket.",
+        "source": "user",
+        "default": ""
+      },
+      {
+        "name": "ssh_host",
+        "type": "string",
+        "description": "Optional SSH host from a bare-metal credential template; combined with ssh_user into DOCKER_HOST=ssh://user@host. Empty = use local Docker socket.",
+        "source": "user",
+        "default": ""
+      },
+      {
+        "name": "docker_host",
+        "type": "string",
+        "description": "Optional explicit DOCKER_HOST override (e.g. ssh://user@host or tcp://host:2375). Takes precedence over ssh_user/ssh_host when set.",
+        "source": "user",
+        "default": ""
+      },
+      {
+        "name": "kind_node_image",
+        "type": "string",
+        "description": "Optional kind node image override (e.g. kindest/node:v1.31.0). Empty = provider default.",
+        "source": "user",
+        "default": ""
+      }
+    ]
+  },
+  "outputs": {
+    "key_outputs": [
+      { "name": "cluster_id", "type": "string", "description": "Cluster ID alias for BNK registration." },
+      { "name": "cluster_name", "type": "string", "description": "Cluster name for BNK registration." },
+      { "name": "cluster_endpoint", "type": "string", "description": "Cluster API endpoint reachable from the bnk-forge worker." },
+      { "name": "region", "type": "string", "description": "Synthetic region label (local-kind)." },
+      { "name": "kubeconfig", "type": "string", "description": "Base64-encoded in-network kubeconfig. Sensitive." }
+    ]
+  },
+  "credentials": {
+    "required": [],
+    "optional": []
+  }
+}

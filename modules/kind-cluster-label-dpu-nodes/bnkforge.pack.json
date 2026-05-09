@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "module": {
+    "name": "kind_cluster_label_dpu_nodes",
+    "path": "modules/kind-cluster-label-dpu-nodes",
+    "version": "1.0.0",
+    "category": "k8s",
+    "description": "Label two kind worker nodes app=f5-tmm and taint them dpu=true:NoSchedule so FLO/TMM scheduling matches the f5-bnk-udf lab pattern. Required for FLO to schedule TMM pods on a kind cluster.",
+    "provider": null,
+    "supported_platforms": ["generic_onprem"],
+    "tags": ["kind", "dpu", "tmm", "labels", "taints"]
+  },
+  "deployment_pack": {
+    "engine": "opentofu",
+    "runner_profile": "opentofu-default",
+    "working_directory": ".",
+    "entrypoints": {
+      "module_root": "."
+    },
+    "lifecycle": {
+      "supports_init": true,
+      "supports_plan": true,
+      "supports_apply": true,
+      "supports_destroy": true,
+      "supports_refresh": true,
+      "supports_drift": false
+    }
+  },
+  "dependencies": {
+    "required": [],
+    "optional": []
+  },
+  "inputs": {
+    "required": [
+      {
+        "name": "kubeconfig",
+        "type": "string",
+        "description": "Base64-encoded kubeconfig for the kind cluster. Wired by the blueprint from kind-cluster-create / kind-cluster-register.",
+        "source": "module",
+        "sensitive": true
+      }
+    ],
+    "optional": [
+      {
+        "name": "dpu_node_names",
+        "type": "list(string)",
+        "description": "Worker nodes to label as DPU-equivalent.",
+        "source": "user",
+        "default": ["bnk-worker2", "bnk-worker3"]
+      },
+      {
+        "name": "tmm_label_key",
+        "type": "string",
+        "description": "Label key applied to DPU nodes.",
+        "source": "user",
+        "default": "app"
+      },
+      {
+        "name": "tmm_label_value",
+        "type": "string",
+        "description": "Label value applied to DPU nodes.",
+        "source": "user",
+        "default": "f5-tmm"
+      },
+      {
+        "name": "dpu_taint_key",
+        "type": "string",
+        "description": "Taint key applied to DPU nodes.",
+        "source": "user",
+        "default": "dpu"
+      },
+      {
+        "name": "dpu_taint_value",
+        "type": "string",
+        "description": "Taint value applied to DPU nodes.",
+        "source": "user",
+        "default": "true"
+      },
+      {
+        "name": "dpu_taint_effect",
+        "type": "string",
+        "description": "Taint effect applied to DPU nodes.",
+        "source": "user",
+        "default": "NoSchedule"
+      }
+    ]
+  },
+  "outputs": {
+    "key_outputs": [
+      { "name": "labeled_nodes", "type": "list(string)", "description": "Node names that received the TMM label and DPU taint." },
+      { "name": "tmm_label", "type": "string", "description": "Applied label in key=value form." },
+      { "name": "dpu_taint", "type": "string", "description": "Applied taint in key=value:effect form." }
+    ]
+  },
+  "credentials": {
+    "required": [],
+    "optional": []
+  }
+}

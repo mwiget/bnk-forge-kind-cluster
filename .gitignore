@@ -1,0 +1,14 @@
+# OpenTofu / Terraform local state and provider downloads
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# Per-module kubeconfig staging artifacts written by local_file resources
+.kubeconfig
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*.swo

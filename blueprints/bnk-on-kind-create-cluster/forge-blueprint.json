@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "blueprint": {
+    "id": "bnk-on-kind-create-cluster",
+    "version": "1.0.0",
+    "name": "BNK on kind (create cluster)",
+    "description": "Provision a kind cluster from scratch and install BNK on it: cluster create, DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
+  },
+  "compatibility": {
+    "supported_platform_profiles": ["generic_onprem"],
+    "required_capabilities": []
+  },
+  "category": "infrastructure",
+  "cloud_provider": "any",
+  "icon": "Server",
+  "color": "emerald",
+  "estimated_time": "10-25 minutes",
+  "estimated_cost": "No additional infrastructure cost",
+  "difficulty": "intermediate",
+  "maturity": "reference",
+  "bnk_version": "2.2",
+  "tags": ["kind", "kubernetes", "local", "bnk", "poc", "developer"],
+  "outcomes": [
+    "kind cluster created on the local Docker daemon (or a remote host via DOCKER_HOST)",
+    "Two worker nodes labeled for TMM scheduling (DPU emulation)",
+    "cert-manager installed plus the BNK CA ClusterIssuer chain",
+    "F5 Lifecycle Operator (FLO) installed with FAR pull secret + JWT license",
+    "CNEInstance deployed with kind-appropriate defaults",
+    "BNK License CR applied",
+    "Cluster auto-registered with bnk-forge"
+  ],
+  "prerequisites": [
+    {
+      "type": "project_secret",
+      "name": "far_auth_key",
+      "description": "Extracted contents of f5-far-auth-key.tgz (base64-encoded JSON service account key). Stored encrypted; never serialized into terraform.tfvars.json or task output."
+    },
+    {
+      "type": "project_secret",
+      "name": "jwt_token",
+      "description": "F5 BNK subscription JWT. Stored encrypted; never serialized into terraform.tfvars.json or task output."
+    },
+    {
+      "type": "requirement",
+      "description": "The bnk-forge worker container needs access to a Docker daemon — either /var/run/docker.sock mounted from the host, or DOCKER_HOST pointing at a reachable remote daemon. The compose override that mounts docker.sock into the worker is described in this repo's README."
+    },
+    {
+      "type": "credential_template",
+      "name": "bare_metal_ssh",
+      "description": "Optional. Bare-metal credential template with ssh_user + ssh_host populated lets the blueprint deploy kind to a remote host via DOCKER_HOST=ssh://user@host. Leave empty to use the local Docker socket."
+    }
+  ],
+  "input_summary": [
+    {
+      "label": "Input guidance",
+      "value": "For a local kind cluster, just pick a cluster_name (default 'bnk') and ensure both project secrets are populated. For a remote kind cluster, attach a bare-metal credential template with SSH details."
+    }
+  ],
+  "platform_defaults": {
+    "generic_onprem": {
+      "container_platform": "Generic",
+      "cni_type": "kindnet",
+      "flo_namespace": "f5-operators",
+      "cert_manager_namespace": "cert-manager"
+    }
+  },
+  "inputs": {
+    "required": [],
+    "optional": [
+      {
+        "name": "cluster_name",
+        "type": "string",
+        "description": "Name of the kind cluster to create.",
+        "default": "bnk",
+        "order": 10
+      },
+      {
+        "name": "ssh_user",
+        "type": "string",
+        "description": "Optional SSH user from a bare-metal credential template; combined with ssh_host into DOCKER_HOST=ssh://user@host.",
+        "default": "",
+        "source": "credential_template",
+        "source_field": "ssh_user",
+        "order": 20
+      },
+      {
+        "name": "ssh_host",
+        "type": "string",
+        "description": "Optional SSH host from a bare-metal credential template.",
+        "default": "",
+        "source": "credential_template",
+        "source_field": "ssh_host",
+        "order": 21
+      },
+      {
+        "name": "docker_host",
+        "type": "string",
+        "description": "Explicit DOCKER_HOST override (e.g. tcp://host:2375). Takes precedence over ssh_user/ssh_host. Empty = use the local Docker socket.",
+        "default": "",
+        "order": 22
+      },
+      {
+        "name": "kind_node_image",
+        "type": "string",
+        "description": "Optional kind node image override. Empty = provider default.",
+        "default": "",
+        "order": 30
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "cluster-create",
+      "name": "kind cluster create",
+      "description": "Create a kind cluster (1 cp + 4 workers, dual-stack, default CNI off) and emit BNK registration outputs.",
+      "module": "modules/kind-cluster-create",
+      "version": "1.0.0",
+      "depends_on": [],
+      "inputs": {
+        "cluster_name": "${cluster_name}",
+        "ssh_user": "${ssh_user}",
+        "ssh_host": "${ssh_host}",
+        "docker_host": "${docker_host}",
+        "kind_node_image": "${kind_node_image}"
+      }
+    },
+    {
+      "id": "label-dpu-nodes",
+      "name": "Label DPU worker nodes",
+      "description": "Label two workers app=f5-tmm and taint them dpu=true:NoSchedule (DPU emulation for kind).",
+      "module": "modules/kind-cluster-label-dpu-nodes",
+      "version": "1.0.0",
+      "depends_on": ["cluster-create"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}"
+      }
+    },
+    {
+      "id": "cert-manager",
+      "name": "cert-manager",
+      "description": "Install cert-manager + the BNK CA ClusterIssuer chain.",
+      "module": "modules/kind-cluster-install-cert-manager",
+      "version": "1.0.0",
+      "depends_on": ["label-dpu-nodes"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}"
+      }
+    },
+    {
+      "id": "flo",
+      "name": "F5 Lifecycle Operator",
+      "description": "Install FLO with FAR pull secret + JWT license.",
+      "module": "modules/kind-cluster-install-flo",
+      "version": "1.0.0",
+      "depends_on": ["cert-manager"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}",
+        "cluster_issuer_name": "${modules.cert-manager.outputs.cluster_issuer_name}"
+      }
+    },
+    {
+      "id": "cneinstance",
+      "name": "CNEInstance",
+      "description": "Apply the CNEInstance CR with kind-appropriate defaults.",
+      "module": "modules/kind-cluster-cneinstall",
+      "version": "1.0.0",
+      "depends_on": ["flo"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}",
+        "flo_namespace": "${modules.flo.outputs.flo_namespace}",
+        "flo_cluster_issuer_name": "${modules.flo.outputs.flo_cluster_issuer_name}"
+      }
+    },
+    {
+      "id": "license",
+      "name": "BNK License",
+      "description": "Apply the BNK License CR using the jwt_token project secret.",
+      "module": "modules/kind-cluster-license",
+      "version": "1.0.0",
+      "depends_on": ["cneinstance"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-create.outputs.kubeconfig}",
+        "license_namespace": "${modules.flo.outputs.flo_namespace}"
+      }
+    }
+  ]
+}

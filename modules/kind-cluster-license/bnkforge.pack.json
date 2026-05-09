@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "module": {
+    "name": "kind_cluster_license",
+    "path": "modules/kind-cluster-license",
+    "version": "1.0.0",
+    "category": "bnk",
+    "description": "Apply a BNK License CR to a kind cluster using the jwt_token project secret. No IBM Cloud Object Storage path.",
+    "provider": null,
+    "supported_platforms": ["generic_onprem"],
+    "tags": ["kind", "license", "bnk"]
+  },
+  "deployment_pack": {
+    "engine": "opentofu",
+    "runner_profile": "opentofu-default",
+    "working_directory": ".",
+    "entrypoints": {
+      "module_root": "."
+    },
+    "lifecycle": {
+      "supports_init": true,
+      "supports_plan": true,
+      "supports_apply": true,
+      "supports_destroy": true,
+      "supports_refresh": true,
+      "supports_drift": true
+    }
+  },
+  "dependencies": {
+    "required": [
+      { "module": "modules/kind-cluster-cneinstall", "reason": "License is meaningful only after the CNEInstance is up." }
+    ],
+    "optional": []
+  },
+  "inputs": {
+    "required": [
+      {
+        "name": "kubeconfig",
+        "type": "string",
+        "description": "Base64-encoded kubeconfig.",
+        "source": "module",
+        "sensitive": true
+      }
+    ],
+    "optional": [
+      { "name": "jwt_token", "type": "string", "default": "", "source": "user", "sensitive": true, "description": "F5 BNK subscription JWT. Auto-injected by the variable assembler when a project secret of the same name is present." },
+      { "name": "license_namespace", "type": "string", "default": "f5-operators", "source": "module", "description": "License CR namespace." },
+      { "name": "license_name", "type": "string", "default": "bnk-license", "source": "user", "description": "License metadata.name." },
+      { "name": "license_mode", "type": "string", "default": "connected", "source": "user", "description": "spec.operationMode (connected | disconnected)." }
+    ]
+  },
+  "outputs": {
+    "key_outputs": [
+      { "name": "license_id", "type": "string", "description": "License metadata.name." },
+      { "name": "license_namespace", "type": "string", "description": "License metadata.namespace." }
+    ]
+  },
+  "credentials": {
+    "required": [],
+    "optional": []
+  }
+}

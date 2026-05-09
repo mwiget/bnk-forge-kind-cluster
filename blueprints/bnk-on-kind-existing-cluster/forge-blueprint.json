@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "blueprint": {
+    "id": "bnk-on-kind-existing-cluster",
+    "version": "1.0.0",
+    "name": "BNK on kind (existing cluster)",
+    "description": "Install BNK onto an existing kind cluster: DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
+  },
+  "compatibility": {
+    "supported_platform_profiles": ["generic_onprem"],
+    "required_capabilities": []
+  },
+  "category": "bnk",
+  "cloud_provider": "any",
+  "icon": "Server",
+  "color": "emerald",
+  "estimated_time": "5-15 minutes",
+  "estimated_cost": "No additional infrastructure cost",
+  "difficulty": "intermediate",
+  "maturity": "reference",
+  "bnk_version": "2.2",
+  "tags": ["kind", "kubernetes", "local", "bnk", "poc", "developer"],
+  "outcomes": [
+    "Existing kind cluster referenced by name",
+    "Two worker nodes labeled for TMM scheduling (DPU emulation)",
+    "cert-manager installed plus the BNK CA ClusterIssuer chain",
+    "F5 Lifecycle Operator (FLO) installed with FAR pull secret + JWT license",
+    "CNEInstance deployed with kind-appropriate defaults",
+    "BNK License CR applied"
+  ],
+  "prerequisites": [
+    {
+      "type": "kubernetes_cluster",
+      "description": "An existing kind cluster reachable from the bnk-forge worker container. Use the 'BNK on kind (create cluster)' blueprint if you need to provision one first."
+    },
+    {
+      "type": "project_secret",
+      "name": "far_auth_key",
+      "description": "Extracted contents of f5-far-auth-key.tgz (base64-encoded JSON service account key). Stored encrypted; never serialized into terraform.tfvars.json or task output."
+    },
+    {
+      "type": "project_secret",
+      "name": "jwt_token",
+      "description": "F5 BNK subscription JWT. Stored encrypted; never serialized into terraform.tfvars.json or task output."
+    }
+  ],
+  "input_summary": [
+    {
+      "label": "Input guidance",
+      "value": "Pick the project that has the kind cluster registered, set the cluster name (defaults to 'bnk'), and ensure both project secrets are populated. Everything else uses sensible kind-on-laptop defaults."
+    }
+  ],
+  "platform_defaults": {
+    "generic_onprem": {
+      "container_platform": "Generic",
+      "cni_type": "kindnet",
+      "flo_namespace": "f5-operators",
+      "cert_manager_namespace": "cert-manager"
+    }
+  },
+  "inputs": {
+    "required": [],
+    "optional": [
+      {
+        "name": "cluster_name",
+        "type": "string",
+        "description": "Name of the existing kind cluster.",
+        "default": "bnk",
+        "order": 10
+      },
+      {
+        "name": "ssh_user",
+        "type": "string",
+        "description": "Optional SSH user for remote-host kind via DOCKER_HOST=ssh://user@host. Inherits from a bare-metal credential template when present.",
+        "default": "",
+        "source": "credential_template",
+        "source_field": "ssh_user",
+        "order": 20
+      },
+      {
+        "name": "ssh_host",
+        "type": "string",
+        "description": "Optional SSH host for remote-host kind via DOCKER_HOST=ssh://user@host. Inherits from a bare-metal credential template when present.",
+        "default": "",
+        "source": "credential_template",
+        "source_field": "ssh_host",
+        "order": 21
+      },
+      {
+        "name": "docker_host",
+        "type": "string",
+        "description": "Explicit DOCKER_HOST override (e.g. tcp://host:2375). Takes precedence over ssh_user/ssh_host. Empty = use the local Docker socket on the bnk-forge worker.",
+        "default": "",
+        "order": 22
+      }
+    ]
+  },
+  "modules": [
+    {
+      "id": "cluster-register",
+      "name": "kind cluster register",
+      "description": "Reference the existing kind cluster and emit BNK registration outputs.",
+      "module": "modules/kind-cluster-register",
+      "version": "1.0.0",
+      "depends_on": [],
+      "inputs": {
+        "cluster_name": "${cluster_name}",
+        "ssh_user": "${ssh_user}",
+        "ssh_host": "${ssh_host}",
+        "docker_host": "${docker_host}"
+      }
+    },
+    {
+      "id": "label-dpu-nodes",
+      "name": "Label DPU worker nodes",
+      "description": "Label two workers app=f5-tmm and taint them dpu=true:NoSchedule (DPU emulation for kind).",
+      "module": "modules/kind-cluster-label-dpu-nodes",
+      "version": "1.0.0",
+      "depends_on": ["cluster-register"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-register.outputs.kubeconfig}"
+      }
+    },
+    {
+      "id": "cert-manager",
+      "name": "cert-manager",
+      "description": "Install cert-manager + the BNK CA ClusterIssuer chain.",
+      "module": "modules/kind-cluster-install-cert-manager",
+      "version": "1.0.0",
+      "depends_on": ["label-dpu-nodes"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-register.outputs.kubeconfig}"
+      }
+    },
+    {
+      "id": "flo",
+      "name": "F5 Lifecycle Operator",
+      "description": "Install FLO with FAR pull secret + JWT license.",
+      "module": "modules/kind-cluster-install-flo",
+      "version": "1.0.0",
+      "depends_on": ["cert-manager"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-register.outputs.kubeconfig}",
+        "cluster_issuer_name": "${modules.cert-manager.outputs.cluster_issuer_name}"
+      }
+    },
+    {
+      "id": "cneinstance",
+      "name": "CNEInstance",
+      "description": "Apply the CNEInstance CR with kind-appropriate defaults.",
+      "module": "modules/kind-cluster-cneinstall",
+      "version": "1.0.0",
+      "depends_on": ["flo"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-register.outputs.kubeconfig}",
+        "flo_namespace": "${modules.flo.outputs.flo_namespace}",
+        "flo_cluster_issuer_name": "${modules.flo.outputs.flo_cluster_issuer_name}"
+      }
+    },
+    {
+      "id": "license",
+      "name": "BNK License",
+      "description": "Apply the BNK License CR using the jwt_token project secret.",
+      "module": "modules/kind-cluster-license",
+      "version": "1.0.0",
+      "depends_on": ["cneinstance"],
+      "inputs": {
+        "kubeconfig": "${modules.cluster-register.outputs.kubeconfig}",
+        "license_namespace": "${modules.flo.outputs.flo_namespace}"
+      }
+    }
+  ]
+}

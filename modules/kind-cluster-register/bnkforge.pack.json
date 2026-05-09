@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "module": {
+    "name": "kind_cluster_register_existing",
+    "path": "modules/kind-cluster-register",
+    "version": "1.0.0",
+    "category": "infra",
+    "description": "Reference an existing kind cluster on the local Docker daemon (or a remote host via DOCKER_HOST) and emit BNK cluster-registration outputs.",
+    "provider": null,
+    "supported_platforms": ["generic_onprem"],
+    "tags": ["kind", "kubernetes", "local", "cluster", "registration", "infrastructure"]
+  },
+  "deployment_pack": {
+    "engine": "opentofu",
+    "runner_profile": "opentofu-default",
+    "working_directory": ".",
+    "entrypoints": {
+      "module_root": "."
+    },
+    "lifecycle": {
+      "supports_init": true,
+      "supports_plan": true,
+      "supports_apply": true,
+      "supports_destroy": true,
+      "supports_refresh": true,
+      "supports_drift": false
+    }
+  },
+  "dependencies": {
+    "required": [],
+    "optional": []
+  },
+  "inputs": {
+    "required": [],
+    "optional": [
+      {
+        "name": "cluster_name",
+        "type": "string",
+        "description": "Name of the existing kind cluster.",
+        "source": "user",
+        "default": "bnk"
+      },
+      {
+        "name": "ssh_user",
+        "type": "string",
+        "description": "Optional SSH user from a bare-metal credential template; combined with ssh_host into DOCKER_HOST=ssh://user@host.",
+        "source": "user",
+        "default": ""
+      },
+      {
+        "name": "ssh_host",
+        "type": "string",
+        "description": "Optional SSH host from a bare-metal credential template; combined with ssh_user into DOCKER_HOST=ssh://user@host.",
+        "source": "user",
+        "default": ""
+      },
+      {
+        "name": "docker_host",
+        "type": "string",
+        "description": "Optional explicit DOCKER_HOST override. Takes precedence over ssh_user/ssh_host.",
+        "source": "user",
+        "default": ""
+      }
+    ]
+  },
+  "outputs": {
+    "key_outputs": [
+      { "name": "cluster_id", "type": "string", "description": "Cluster ID alias for BNK registration." },
+      { "name": "cluster_name", "type": "string", "description": "Cluster name for BNK registration." },
+      { "name": "cluster_endpoint", "type": "string", "description": "Cluster API endpoint." },
+      { "name": "region", "type": "string", "description": "Synthetic region label (local-kind)." },
+      { "name": "kubeconfig", "type": "string", "description": "Base64-encoded in-network kubeconfig. Sensitive." }
+    ]
+  },
+  "credentials": {
+    "required": [],
+    "optional": []
+  }
+}
