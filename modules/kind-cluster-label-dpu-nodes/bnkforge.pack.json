@@ -36,7 +36,7 @@
         "name": "kubeconfig",
         "type": "string",
         "description": "Base64-encoded kubeconfig for the kind cluster. Wired by the blueprint from kind-cluster-create / kind-cluster-register.",
-        "source": "module",
+        "source": "user",
         "sensitive": true
       }
     ],

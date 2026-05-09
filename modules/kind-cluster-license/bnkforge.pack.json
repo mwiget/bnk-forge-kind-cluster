@@ -38,13 +38,13 @@
         "name": "kubeconfig",
         "type": "string",
         "description": "Base64-encoded kubeconfig.",
-        "source": "module",
+        "source": "user",
         "sensitive": true
       }
     ],
     "optional": [
       { "name": "jwt_token", "type": "string", "default": "", "source": "user", "sensitive": true, "description": "F5 BNK subscription JWT. Auto-injected by the variable assembler when a project secret of the same name is present." },
-      { "name": "license_namespace", "type": "string", "default": "f5-operators", "source": "module", "description": "License CR namespace." },
+      { "name": "license_namespace", "type": "string", "default": "f5-operators", "source": "user", "description": "License CR namespace." },
       { "name": "license_name", "type": "string", "default": "bnk-license", "source": "user", "description": "License metadata.name." },
       { "name": "license_mode", "type": "string", "default": "connected", "source": "user", "description": "spec.operationMode (connected | disconnected)." }
     ]

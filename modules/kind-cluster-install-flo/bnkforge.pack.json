@@ -39,7 +39,7 @@
         "name": "kubeconfig",
         "type": "string",
         "description": "Base64-encoded kubeconfig for the kind cluster.",
-        "source": "module",
+        "source": "user",
         "sensitive": true
       }
     ],
@@ -47,7 +47,7 @@
       { "name": "far_auth_key", "type": "string", "default": "", "source": "user", "sensitive": true, "description": "Extracted contents of f5-far-auth-key.tgz. Auto-injected by the variable assembler when a project secret of the same name is present." },
       { "name": "jwt_token", "type": "string", "default": "", "source": "user", "sensitive": true, "description": "F5 BNK subscription JWT. Auto-injected by the variable assembler when a project secret of the same name is present." },
       { "name": "flo_namespace", "type": "string", "default": "f5-operators", "source": "user", "description": "FLO namespace." },
-      { "name": "cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "module", "description": "BNK CA ClusterIssuer name. Wired from cert-manager." },
+      { "name": "cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "user", "description": "BNK CA ClusterIssuer name. Wired from cert-manager." },
       { "name": "flo_chart_ref", "type": "string", "default": "oci://repo.f5.com/charts/f5-lifecycle-operator", "source": "user", "description": "FLO chart OCI reference." },
       { "name": "flo_chart_version", "type": "string", "default": "v2.9.27-0.2.10", "source": "user", "description": "FLO chart version." },
       { "name": "container_platform", "type": "string", "default": "Generic", "source": "user", "description": "FLO containerPlatform value." },

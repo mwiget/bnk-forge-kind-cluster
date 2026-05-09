@@ -38,13 +38,13 @@
         "name": "kubeconfig",
         "type": "string",
         "description": "Base64-encoded kubeconfig.",
-        "source": "module",
+        "source": "user",
         "sensitive": true
       }
     ],
     "optional": [
-      { "name": "flo_namespace", "type": "string", "default": "f5-operators", "source": "module", "description": "Namespace where the CNEInstance is applied." },
-      { "name": "flo_cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "module", "description": "ClusterIssuer FLO is bound to." },
+      { "name": "flo_namespace", "type": "string", "default": "f5-operators", "source": "user", "description": "Namespace where the CNEInstance is applied." },
+      { "name": "flo_cluster_issuer_name", "type": "string", "default": "bnk-ca-cluster-issuer", "source": "user", "description": "ClusterIssuer FLO is bound to." },
       { "name": "cneinstance_name", "type": "string", "default": "bnkgatewayclass-sample", "source": "user", "description": "metadata.name." },
       { "name": "manifest_version", "type": "string", "default": "2.2.0-3.2226.0-0.0.385", "source": "user", "description": "spec.manifestVersion." },
       { "name": "deployment_size", "type": "string", "default": "Small", "source": "user", "description": "spec.deploymentSize." },
