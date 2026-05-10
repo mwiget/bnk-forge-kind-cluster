@@ -101,6 +101,32 @@ resource "kubectl_manifest" "far_secret_default" {
   })
 }
 
+# Defensive pre-uninstall — same pattern as cert-manager. Without it, a
+# fresh project's helm install fails with "cannot re-use a name that is
+# still in use" if a prior project left an installed FLO release on the
+# kind cluster.
+resource "terraform_data" "flo_pre_uninstall" {
+  triggers_replace = {
+    kc_hash = var.kubeconfig != "" ? sha256(var.kubeconfig) : ""
+    name    = "flo"
+    ns      = var.flo_namespace
+  }
+
+  provisioner "local-exec" {
+    when    = create
+    command = <<-EOT
+      set -euo pipefail
+      KC=$(mktemp)
+      trap 'rm -f "$KC"' EXIT
+      echo '${var.kubeconfig}' | base64 -d > "$KC"
+      helm --kubeconfig "$KC" uninstall flo \
+        --namespace '${var.flo_namespace}' --ignore-not-found || true
+    EOT
+  }
+
+  depends_on = [kubectl_manifest.flo_namespace]
+}
+
 resource "helm_release" "flo" {
   name       = "flo"
   repository = ""
@@ -161,5 +187,6 @@ resource "helm_release" "flo" {
   depends_on = [
     kubectl_manifest.far_secret_flo,
     kubectl_manifest.far_secret_default,
+    terraform_data.flo_pre_uninstall,
   ]
 }

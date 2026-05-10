@@ -58,6 +58,35 @@ resource "kubectl_manifest" "cert_manager_namespace" {
   })
 }
 
+# Defensive pre-uninstall — helm_release only knows how to *install* a
+# fresh release. With bnk-forge wiping tofu state per project but the kind
+# cluster surviving across projects, the cluster often already has a
+# cert-manager release from a prior project. helm install then errors with
+# "cannot re-use a name that is still in use" (replace=true only helps
+# with purged/deleted releases, not actively-installed ones). Running
+# `helm uninstall --ignore-not-found` first guarantees a clean slate.
+resource "terraform_data" "cert_manager_pre_uninstall" {
+  triggers_replace = {
+    kc_hash = var.kubeconfig != "" ? sha256(var.kubeconfig) : ""
+    name    = "cert-manager"
+    ns      = var.namespace
+  }
+
+  provisioner "local-exec" {
+    when    = create
+    command = <<-EOT
+      set -euo pipefail
+      KC=$(mktemp)
+      trap 'rm -f "$KC"' EXIT
+      echo '${var.kubeconfig}' | base64 -d > "$KC"
+      helm --kubeconfig "$KC" uninstall cert-manager \
+        --namespace '${var.namespace}' --ignore-not-found || true
+    EOT
+  }
+
+  depends_on = [kubectl_manifest.cert_manager_namespace]
+}
+
 resource "helm_release" "cert_manager" {
   name       = "cert-manager"
   repository = var.chart_repository
@@ -84,7 +113,10 @@ resource "helm_release" "cert_manager" {
     },
   ]
 
-  depends_on = [kubectl_manifest.cert_manager_namespace]
+  depends_on = [
+    kubectl_manifest.cert_manager_namespace,
+    terraform_data.cert_manager_pre_uninstall,
+  ]
 }
 
 # Wait briefly so cert-manager CRDs (ClusterIssuer, Certificate, …) are

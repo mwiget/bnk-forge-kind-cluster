@@ -3,7 +3,7 @@
   "module": {
     "name": "kind_cluster_install_flo",
     "path": "modules/kind-cluster-install-flo",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "category": "bnk",
     "description": "Install the F5 Lifecycle Operator on a kind cluster via Helm. Materializes the FAR pull secret from the far_auth_key project secret and templates the FLO license JWT from the jwt_token project secret.",
     "provider": null,

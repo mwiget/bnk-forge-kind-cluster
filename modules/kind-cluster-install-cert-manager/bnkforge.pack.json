@@ -3,7 +3,7 @@
   "module": {
     "name": "kind_cluster_install_cert_manager",
     "path": "modules/kind-cluster-install-cert-manager",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "category": "infra",
     "description": "Install cert-manager onto a kind cluster via the Jetstack Helm chart, plus the self-signed and bnk-ca-cluster-issuer chain BNK consumes.",
     "provider": null,
