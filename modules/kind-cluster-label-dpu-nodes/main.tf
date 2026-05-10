@@ -26,6 +26,10 @@ resource "kubernetes_labels" "dpu_nodes" {
 }
 
 # Taints — kubernetes_node_taint is similarly upsert-style.
+# `force = true` because kube-controller-manager also manages
+# .spec.taints (it adds NotReady/Unschedulable conditions during node
+# lifecycle), and Terraform's server-side apply otherwise refuses to
+# update the field with "Field manager conflict".
 resource "kubernetes_node_taint" "dpu_nodes" {
   for_each = toset(var.dpu_node_names)
   metadata {
@@ -36,4 +40,5 @@ resource "kubernetes_node_taint" "dpu_nodes" {
     value  = var.dpu_taint_value
     effect = var.dpu_taint_effect
   }
+  force = true
 }
