@@ -2,7 +2,7 @@
   "schema_version": 1,
   "blueprint": {
     "id": "bnk-on-kind-existing-cluster",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "name": "BNK on kind (existing cluster)",
     "description": "Install BNK onto an existing kind cluster: DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
   },
