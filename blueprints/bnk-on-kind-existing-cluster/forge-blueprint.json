@@ -2,7 +2,7 @@
   "schema_version": 1,
   "blueprint": {
     "id": "bnk-on-kind-existing-cluster",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "name": "BNK on kind (existing cluster)",
     "description": "Install BNK onto an existing kind cluster: DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
   },
@@ -146,7 +146,7 @@
       "name": "F5 Lifecycle Operator",
       "description": "Install FLO with FAR pull secret + JWT license.",
       "module": "modules/kind-cluster-install-flo",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "depends_on": [
         "cert-manager"
       ],
