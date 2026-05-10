@@ -2,7 +2,7 @@
   "schema_version": 1,
   "blueprint": {
     "id": "bnk-on-kind-create-cluster",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "name": "BNK on kind (create cluster)",
     "description": "Provision a kind cluster from scratch and install BNK on it: cluster create, DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
   },
@@ -138,7 +138,7 @@
       "name": "Label DPU worker nodes",
       "description": "Label two workers app=f5-tmm and taint them dpu=true:NoSchedule (DPU emulation for kind).",
       "module": "modules/kind-cluster-label-dpu-nodes",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "depends_on": [
         "cluster-create"
       ],
