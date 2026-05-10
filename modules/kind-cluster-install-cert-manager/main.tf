@@ -1,18 +1,32 @@
-resource "local_file" "kubeconfig" {
-  filename        = "${path.module}/.kubeconfig"
-  content         = base64decode(var.kubeconfig)
-  file_permission = "0600"
+locals {
+  # Parse the auto-wired kubeconfig at plan time so provider attributes
+  # resolve without writing a file first. local_file -> config_path doesn't
+  # work for resources that validate server-side at plan time
+  # (kubernetes_manifest in particular) — the provider stat()s config_path
+  # before local_file gets a chance to write it.
+  #
+  # try() guards against the kubeconfig variable being empty during initial
+  # plan (before auto-wire fires) — same shape as the IBM ROKS modules use
+  # with data.ibm_container_cluster_config.
+  kc_raw = var.kubeconfig != "" ? base64decode(var.kubeconfig) : ""
+  kc     = local.kc_raw != "" ? yamldecode(local.kc_raw) : null
 }
 
 provider "kubernetes" {
-  config_path = local_file.kubeconfig.filename
+  host                   = try(local.kc.clusters[0].cluster.server, "")
+  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
+  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
+  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
 }
 
 provider "helm" {
   # Helm provider v3+ requires `kubernetes = {...}` (argument with equals),
   # not the legacy v2 `kubernetes {...}` block syntax.
   kubernetes = {
-    config_path = local_file.kubeconfig.filename
+    host                   = try(local.kc.clusters[0].cluster.server, "")
+    cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
+    client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
+    client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
   }
 }
 

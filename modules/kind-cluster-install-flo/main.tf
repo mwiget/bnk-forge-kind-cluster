@@ -1,16 +1,21 @@
-resource "local_file" "kubeconfig" {
-  filename        = "${path.module}/.kubeconfig"
-  content         = base64decode(var.kubeconfig)
-  file_permission = "0600"
+locals {
+  kc_raw = var.kubeconfig != "" ? base64decode(var.kubeconfig) : ""
+  kc     = local.kc_raw != "" ? yamldecode(local.kc_raw) : null
 }
 
 provider "kubernetes" {
-  config_path = local_file.kubeconfig.filename
+  host                   = try(local.kc.clusters[0].cluster.server, "")
+  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
+  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
+  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
 }
 
 provider "helm" {
   kubernetes = {
-    config_path = local_file.kubeconfig.filename
+    host                   = try(local.kc.clusters[0].cluster.server, "")
+    cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
+    client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
+    client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
   }
 }
 

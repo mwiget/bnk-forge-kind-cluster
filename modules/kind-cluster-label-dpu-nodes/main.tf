@@ -1,22 +1,18 @@
 locals {
-  kubeconfig_decoded = base64decode(var.kubeconfig)
+  # Parse the auto-wired kubeconfig at plan time so provider attributes
+  # resolve without writing a file first.
+  kc_raw = var.kubeconfig != "" ? base64decode(var.kubeconfig) : ""
+  kc     = local.kc_raw != "" ? yamldecode(local.kc_raw) : null
 }
 
 provider "kubernetes" {
-  config_path = local_file.kubeconfig.filename
+  host                   = try(local.kc.clusters[0].cluster.server, "")
+  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
+  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
+  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
 }
 
-# Materialize the kubeconfig to a tmp file so the kubernetes provider can
-# consume it via config_path. Inline kubeconfig support varies between
-# provider versions; the file path is the lowest common denominator.
-resource "local_file" "kubeconfig" {
-  filename        = "${path.module}/.kubeconfig"
-  content         = local.kubeconfig_decoded
-  file_permission = "0600"
-}
-
-# Apply labels — kubernetes_labels is upsert-style, so this is idempotent and
-# survives node re-creation by the kind provider.
+# Apply labels — kubernetes_labels is upsert-style, idempotent across re-runs.
 resource "kubernetes_labels" "dpu_nodes" {
   for_each    = toset(var.dpu_node_names)
   api_version = "v1"
@@ -27,7 +23,6 @@ resource "kubernetes_labels" "dpu_nodes" {
   labels = {
     (var.tmm_label_key) = var.tmm_label_value
   }
-  depends_on = [local_file.kubeconfig]
 }
 
 # Taints — kubernetes_node_taint is similarly upsert-style.
@@ -41,5 +36,4 @@ resource "kubernetes_node_taint" "dpu_nodes" {
     value  = var.dpu_taint_value
     effect = var.dpu_taint_effect
   }
-  depends_on = [local_file.kubeconfig]
 }
