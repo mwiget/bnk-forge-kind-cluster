@@ -1,6 +1,7 @@
 output "flo_namespace" {
   description = "Namespace where FLO and TMM workloads run."
-  value       = kubernetes_namespace_v1.flo.metadata[0].name
+  value       = var.flo_namespace
+  depends_on  = [kubectl_manifest.flo_namespace]
 }
 
 output "flo_release_name" {

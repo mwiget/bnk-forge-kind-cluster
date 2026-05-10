@@ -3,7 +3,7 @@
   "module": {
     "name": "kind_cluster_label_dpu_nodes",
     "path": "modules/kind-cluster-label-dpu-nodes",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "category": "k8s",
     "description": "Label two kind worker nodes app=f5-tmm and taint them dpu=true:NoSchedule so FLO/TMM scheduling matches the f5-bnk-udf lab pattern. Required for FLO to schedule TMM pods on a kind cluster.",
     "provider": null,

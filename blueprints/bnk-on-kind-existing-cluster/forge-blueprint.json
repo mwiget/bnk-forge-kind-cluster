@@ -2,7 +2,7 @@
   "schema_version": 1,
   "blueprint": {
     "id": "bnk-on-kind-existing-cluster",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "name": "BNK on kind (existing cluster)",
     "description": "Install BNK onto an existing kind cluster: DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
   },
@@ -124,7 +124,7 @@
       "name": "Label DPU worker nodes",
       "description": "Label two workers app=f5-tmm and taint them dpu=true:NoSchedule (DPU emulation for kind).",
       "module": "modules/kind-cluster-label-dpu-nodes",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "depends_on": [
         "cluster-register"
       ],
@@ -135,7 +135,7 @@
       "name": "cert-manager",
       "description": "Install cert-manager + the BNK CA ClusterIssuer chain.",
       "module": "modules/kind-cluster-install-cert-manager",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "depends_on": [
         "label-dpu-nodes"
       ],
@@ -146,7 +146,7 @@
       "name": "F5 Lifecycle Operator",
       "description": "Install FLO with FAR pull secret + JWT license.",
       "module": "modules/kind-cluster-install-flo",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "depends_on": [
         "cert-manager"
       ],
@@ -157,7 +157,7 @@
       "name": "CNEInstance",
       "description": "Apply the CNEInstance CR with kind-appropriate defaults.",
       "module": "modules/kind-cluster-cneinstall",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "depends_on": [
         "flo"
       ],
@@ -168,7 +168,7 @@
       "name": "BNK License",
       "description": "Apply the BNK License CR using the jwt_token project secret.",
       "module": "modules/kind-cluster-license",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "depends_on": [
         "cneinstance"
       ],

@@ -1,6 +1,7 @@
 output "namespace" {
   description = "Namespace where cert-manager is deployed."
-  value       = kubernetes_namespace_v1.cert_manager.metadata[0].name
+  value       = var.namespace
+  depends_on  = [kubectl_manifest.cert_manager_namespace]
 }
 
 output "helm_release_name" {

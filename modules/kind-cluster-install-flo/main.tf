@@ -19,6 +19,16 @@ provider "helm" {
   }
 }
 
+# alekc/kubectl provider — required for the kubectl_manifest namespace and
+# secret resources below. Matches the cert-manager module's configuration.
+provider "kubectl" {
+  host                   = try(local.kc.clusters[0].cluster.server, "")
+  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), "")
+  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), "")
+  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), "")
+  load_config_file       = false
+}
+
 # kubectl_manifest (apply semantics) for the namespace and far secrets so
 # they tolerate leftover resources from prior projects — kind clusters are
 # long-lived but bnk-forge tofu state resets on every project, so without
