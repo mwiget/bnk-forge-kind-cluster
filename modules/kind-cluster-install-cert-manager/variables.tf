@@ -31,7 +31,7 @@ variable "wait_for_deployment" {
 variable "timeout" {
   description = "Timeout (seconds) for the cert-manager Helm release."
   type        = number
-  default     = 300
+  default     = 600
 }
 
 variable "post_deployment_delay" {

@@ -15,4 +15,9 @@ nodes:
   - role: worker
 networking:
   ipFamily: dual
-  disableDefaultCNI: true
+  # kindnet is the default CNI and is sufficient for the BNK-on-kind v1
+  # blueprint (no Multus / macvlan networkAttachments). f5-bnk-udf disables
+  # the default and installs Calico+Multus because its lab uses
+  # external-net / egress-net macvlan attachments — out of scope here.
+  # Re-enable disableDefaultCNI: true and add a CNI module if you later
+  # need NetworkAttachmentDefinitions on kind.
