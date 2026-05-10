@@ -45,17 +45,24 @@ provider "kubectl" {
   load_config_file       = false
 }
 
-resource "kubernetes_namespace_v1" "cert_manager" {
-  metadata {
-    name = var.namespace
-  }
+# kubectl_manifest (apply semantics) so the namespace tolerates existing
+# state — kubernetes_namespace_v1 errors with AlreadyExists when an old
+# project's namespace persists on the cluster but the new project's tofu
+# state is empty (common on kind where projects come and go but the
+# cluster sticks around).
+resource "kubectl_manifest" "cert_manager_namespace" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata   = { name = var.namespace }
+  })
 }
 
 resource "helm_release" "cert_manager" {
   name       = "cert-manager"
   repository = var.chart_repository
   chart      = "cert-manager"
-  namespace  = kubernetes_namespace_v1.cert_manager.metadata[0].name
+  namespace  = var.namespace
   version    = var.chart_version
   wait       = var.wait_for_deployment
   timeout    = var.timeout
@@ -77,7 +84,7 @@ resource "helm_release" "cert_manager" {
     },
   ]
 
-  depends_on = [kubernetes_namespace_v1.cert_manager]
+  depends_on = [kubectl_manifest.cert_manager_namespace]
 }
 
 # Wait briefly so cert-manager CRDs (ClusterIssuer, Certificate, …) are

@@ -19,10 +19,16 @@ provider "helm" {
   }
 }
 
-resource "kubernetes_namespace_v1" "flo" {
-  metadata {
-    name = var.flo_namespace
-  }
+# kubectl_manifest (apply semantics) for the namespace and far secrets so
+# they tolerate leftover resources from prior projects — kind clusters are
+# long-lived but bnk-forge tofu state resets on every project, so without
+# apply semantics every retry hits AlreadyExists.
+resource "kubectl_manifest" "flo_namespace" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata   = { name = var.flo_namespace }
+  })
 }
 
 # Materialize the FAR pull secret from the project secret. far_auth_key is
@@ -40,29 +46,49 @@ locals {
       }
     }
   })
+
+  # Pre-encoded so the kubectl_manifest yaml_body matches kubernetes' wire
+  # format for type=kubernetes.io/dockerconfigjson secrets.
+  dockerconfigjson_b64 = base64encode(local.dockerconfigjson)
 }
 
-resource "kubernetes_secret_v1" "far_secret_flo" {
-  metadata {
-    name      = "far-secret"
-    namespace = kubernetes_namespace_v1.flo.metadata[0].name
-  }
-  type = "kubernetes.io/dockerconfigjson"
-  data = {
-    ".dockerconfigjson" = local.dockerconfigjson
-  }
+resource "kubectl_manifest" "far_secret_flo" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    type       = "kubernetes.io/dockerconfigjson"
+    metadata = {
+      name      = "far-secret"
+      namespace = var.flo_namespace
+    }
+    data = {
+      ".dockerconfigjson" = local.dockerconfigjson_b64
+    }
+  })
+
+  # Suppress the data block in plan output — yaml_body otherwise emits the
+  # base64-encoded auth blob in the diff.
+  # Plan-output redaction is handled at the variable level — var.far_auth_key
+  # is sensitive=true in variables.tf, and that propagates through
+  # base64encode and yamlencode automatically.
+
+  depends_on = [kubectl_manifest.flo_namespace]
 }
 
 # Default-namespace copy used by CNEInstance image pulls (matches UDF behavior).
-resource "kubernetes_secret_v1" "far_secret_default" {
-  metadata {
-    name      = "far-secret"
-    namespace = "default"
-  }
-  type = "kubernetes.io/dockerconfigjson"
-  data = {
-    ".dockerconfigjson" = local.dockerconfigjson
-  }
+resource "kubectl_manifest" "far_secret_default" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    type       = "kubernetes.io/dockerconfigjson"
+    metadata = {
+      name      = "far-secret"
+      namespace = "default"
+    }
+    data = {
+      ".dockerconfigjson" = local.dockerconfigjson_b64
+    }
+  })
 }
 
 resource "helm_release" "flo" {
@@ -70,7 +96,7 @@ resource "helm_release" "flo" {
   repository = ""
   chart      = var.flo_chart_ref
   version    = var.flo_chart_version
-  namespace  = kubernetes_namespace_v1.flo.metadata[0].name
+  namespace  = var.flo_namespace
   wait       = var.wait_for_deployment
   timeout    = var.timeout
 
@@ -123,7 +149,7 @@ resource "helm_release" "flo" {
   ]
 
   depends_on = [
-    kubernetes_secret_v1.far_secret_flo,
-    kubernetes_secret_v1.far_secret_default,
+    kubectl_manifest.far_secret_flo,
+    kubectl_manifest.far_secret_default,
   ]
 }

@@ -21,16 +21,31 @@ provider "kubectl" {
   load_config_file       = false
 }
 
-# License Secret — JWT material.
-resource "kubernetes_secret_v1" "license_jwt" {
-  metadata {
-    name      = "${var.license_name}-jwt"
-    namespace = var.license_namespace
-  }
-  type = "Opaque"
-  data = {
-    "jwt" = var.jwt_token
-  }
+locals {
+  license_secret_name = "${var.license_name}-jwt"
+  jwt_token_b64       = base64encode(var.jwt_token)
+}
+
+# License Secret — JWT material. kubectl_manifest (apply semantics) so the
+# secret tolerates an existing copy from a prior project on a shared kind
+# cluster instead of erroring on AlreadyExists.
+resource "kubectl_manifest" "license_jwt" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    type       = "Opaque"
+    metadata = {
+      name      = local.license_secret_name
+      namespace = var.license_namespace
+    }
+    data = {
+      jwt = local.jwt_token_b64
+    }
+  })
+
+  # Plan-output redaction is handled at the variable level — var.jwt_token
+  # is sensitive=true in variables.tf, and that propagates through
+  # base64encode and yamlencode automatically.
 }
 
 # License CR — references the Secret rather than embedding the JWT inline.
@@ -45,11 +60,11 @@ resource "kubectl_manifest" "license" {
     spec = {
       operationMode = var.license_mode
       jwtSecretRef = {
-        name = kubernetes_secret_v1.license_jwt.metadata[0].name
+        name = local.license_secret_name
         key  = "jwt"
       }
     }
   })
 
-  depends_on = [kubernetes_secret_v1.license_jwt]
+  depends_on = [kubectl_manifest.license_jwt]
 }
