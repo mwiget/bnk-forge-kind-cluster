@@ -67,6 +67,14 @@
         "description": "Optional kind node image override (e.g. kindest/node:v1.31.0). Empty = provider default.",
         "source": "user",
         "default": ""
+      },
+      {
+        "name": "far_auth_key",
+        "type": "string",
+        "description": "FAR auth key — auto-injected by bnk-forge from the project secret of the same name. When non-empty, cluster-create runs `helm registry login repo.f5.com` so downstream FLO chart pulls succeed.",
+        "source": "user",
+        "default": "",
+        "sensitive": true
       }
     ]
   },

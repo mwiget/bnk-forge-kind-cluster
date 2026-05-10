@@ -10,7 +10,10 @@ locals {
   # Empty environment when effective_docker_host is empty so kind picks up
   # /var/run/docker.sock; populated DOCKER_HOST otherwise. Per-resource
   # local-exec env, so per-deploy host selection works without bnk-forge core changes.
-  exec_env = local.effective_docker_host != "" ? { DOCKER_HOST = local.effective_docker_host } : {}
+  exec_env = merge(
+    local.effective_docker_host != "" ? { DOCKER_HOST = local.effective_docker_host } : {},
+    { FAR_AUTH_KEY = var.far_auth_key },
+  )
 
   kind_config_path = abspath("${path.module}/payload/kind.yaml")
 }
@@ -68,6 +71,21 @@ resource "terraform_data" "cluster" {
           echo "(skip) $C is not running"
         fi
       done
+
+      # If the project supplies a FAR auth key, prime the helm registry
+      # session so downstream helm_release blocks pulling oci://repo.f5.com/...
+      # (FLO chart in particular) succeed at plan time. Helm OCI doesn't
+      # support per-resource credentials in the helm provider; auth is
+      # global state in /home/bnkforge/.config/helm/registry/config.json,
+      # which IS a persistent docker-compose volume, so logging in once
+      # here covers every subsequent module run.
+      if [ -n "$FAR_AUTH_KEY" ]; then
+        printf '%s' "$FAR_AUTH_KEY" | helm registry login -u _json_key_base64 --password-stdin repo.f5.com \
+          && echo "logged into repo.f5.com via FAR auth key" \
+          || echo "(warn) helm registry login to repo.f5.com failed — downstream FLO chart pull may fail"
+      else
+        echo "(skip) no FAR auth key supplied — helm registry login skipped"
+      fi
     EOT
 
     environment = local.exec_env

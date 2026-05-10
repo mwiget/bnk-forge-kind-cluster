@@ -74,14 +74,13 @@ resource "helm_release" "flo" {
   wait       = var.wait_for_deployment
   timeout    = var.timeout
 
-  # OCI registry auth for repo.f5.com. The K8s `far-secret` materialized
-  # below only authenticates *image* pulls inside the cluster; helm needs
-  # registry creds at *chart* pull time. Same credential pair as
-  # f5-bnk-udf/add-far-registry.sh's `helm registry login`:
-  #   username = _json_key_base64
-  #   password = extracted contents of f5-far-auth-key.tgz
-  repository_username = "_json_key_base64"
-  repository_password = var.far_auth_key
+  # OCI registry auth for repo.f5.com is handled globally — the
+  # cluster-create module runs `helm registry login` once using the same
+  # FAR auth key, and the credential is persisted in
+  # /home/bnkforge/.config/helm/registry/config.json (a persistent
+  # docker-compose volume). The helm provider's OCI chart pull picks it
+  # up at plan time. helm_release.repository_username/_password are HTTP-
+  # only and silently ignored for OCI registries.
 
   # See cert-manager module — helm replace = true makes retries idempotent
   # when a prior apply errored after the helm install but before tofu state

@@ -27,3 +27,10 @@ variable "kind_node_image" {
   type        = string
   default     = ""
 }
+
+variable "far_auth_key" {
+  description = "F5 Artifacts Registry auth (extracted f5-far-auth-key.tgz contents). Auto-injected by bnk-forge from the project secret of the same name. When non-empty, cluster-create runs `helm registry login repo.f5.com` so downstream modules' helm_release OCI chart pulls succeed without per-module auth plumbing."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
