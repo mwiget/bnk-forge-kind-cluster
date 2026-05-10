@@ -60,6 +60,12 @@ resource "helm_release" "cert_manager" {
   wait       = var.wait_for_deployment
   timeout    = var.timeout
 
+  # If a previous failed apply left an orphan release in helm's history but
+  # not in tofu state (e.g. kubectl_manifest step errored after helm
+  # succeeded), recreate cleanly instead of "cannot re-use a name that is
+  # still in use".
+  replace = true
+
   set = [
     {
       name  = "installCRDs"

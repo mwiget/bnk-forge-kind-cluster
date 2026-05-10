@@ -74,6 +74,11 @@ resource "helm_release" "flo" {
   wait       = var.wait_for_deployment
   timeout    = var.timeout
 
+  # See cert-manager module — helm replace = true makes retries idempotent
+  # when a prior apply errored after the helm install but before tofu state
+  # was committed.
+  replace = true
+
   values = [
     yamlencode({
       global = {
