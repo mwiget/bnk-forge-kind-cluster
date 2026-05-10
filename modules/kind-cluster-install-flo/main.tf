@@ -13,6 +13,64 @@ provider "kubectl" {
   load_config_file       = false
 }
 
+# NetworkAttachmentDefinition CRD — required by the FLO operator's
+# controller-runtime manager. FLO unconditionally sets up an informer on
+# v1.NetworkAttachmentDefinition (k8s.cni.cncf.io/v1), and if the CRD
+# isn't registered, the cache-sync times out at startup and the operator
+# crash-loops with:
+#   "problem running manager"
+#   "error"="failed to wait for cneinstance caches to sync kind source:
+#            *v1.NetworkAttachmentDefinition: timed out waiting for
+#            cache to be synced"
+# We don't deploy Multus or any NAD CRs on kind (kindnet handles all
+# networking), but FLO still needs the CRD *definition* present so its
+# informer can attach. This is the minimal upstream CRD from
+# k8snetworkplumbingwg/network-attachment-definition-client.
+resource "kubectl_manifest" "network_attachment_definition_crd" {
+  yaml_body = yamlencode({
+    apiVersion = "apiextensions.k8s.io/v1"
+    kind       = "CustomResourceDefinition"
+    metadata = {
+      name = "network-attachment-definitions.k8s.cni.cncf.io"
+    }
+    spec = {
+      group = "k8s.cni.cncf.io"
+      scope = "Namespaced"
+      names = {
+        plural     = "network-attachment-definitions"
+        singular   = "network-attachment-definition"
+        kind       = "NetworkAttachmentDefinition"
+        shortNames = ["net-attach-def"]
+      }
+      versions = [
+        {
+          name    = "v1"
+          served  = true
+          storage = true
+          schema = {
+            openAPIV3Schema = {
+              type        = "object"
+              description = "NetworkAttachmentDefinition is a CRD schema specified by the Network Plumbing Working Group to express the intent for attaching pods to one or more logical or physical networks."
+              properties = {
+                spec = {
+                  type        = "object"
+                  description = "NetworkAttachmentDefinition spec defines the desired state of a network attachment"
+                  properties = {
+                    config = {
+                      type        = "string"
+                      description = "NetworkAttachmentDefinition config is a JSON-formatted CNI configuration"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  })
+}
+
 # kubectl_manifest (apply semantics) for the namespace and far secrets so
 # they tolerate leftover resources from prior projects — kind clusters are
 # long-lived but bnk-forge tofu state resets on every project, so without
@@ -195,5 +253,6 @@ resource "terraform_data" "flo_helm_install" {
   depends_on = [
     kubectl_manifest.far_secret_flo,
     kubectl_manifest.far_secret_default,
+    kubectl_manifest.network_attachment_definition_crd,
   ]
 }
