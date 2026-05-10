@@ -127,32 +127,34 @@ resource "terraform_data" "flo_pre_uninstall" {
   depends_on = [kubectl_manifest.flo_namespace]
 }
 
-# Authenticate to repo.f5.com so the helm_release below can pull the
-# OCI-hosted FLO chart. The credential persists in
-# /home/bnkforge/.config/helm/registry/config.json (a docker-compose
-# volume), so this only effectively re-authenticates when far_auth_key
-# changes. Lives here rather than in kind-cluster-create because the
-# far_auth_key project secret is target-scoped to this module.
-resource "terraform_data" "flo_helm_registry_login" {
-  triggers_replace = {
-    far_hash = var.far_auth_key != "" ? sha256(var.far_auth_key) : ""
+# Authenticate to repo.f5.com BEFORE plan-time validation runs. The helm
+# provider fetches the OCI chart's manifest at plan time to determine the
+# resource shape; without prior auth this 403's. terraform_data with a
+# create-time provisioner runs at apply time only — too late. data
+# "external" is read during plan refresh, before any resource plans, so
+# the login is in place when helm_release validates the chart.
+#
+# Idempotent: helm registry login overwrites the credential on each call.
+# The credential persists in /home/bnkforge/.config/helm/registry/config.json
+# (a docker-compose volume), so subsequent retries don't re-auth unless
+# far_auth_key changes.
+data "external" "flo_helm_registry_login" {
+  query = {
+    far_auth_key = var.far_auth_key
   }
-
-  provisioner "local-exec" {
-    when = create
-    environment = {
-      FAR_AUTH_KEY = var.far_auth_key
-    }
-    command = <<-EOT
-      set -euo pipefail
-      if [ -z "$FAR_AUTH_KEY" ]; then
-        echo "(skip) far_auth_key empty — helm OCI pull will fail with 403"
-        exit 0
-      fi
-      printf '%s' "$FAR_AUTH_KEY" | helm registry login \
-        -u _json_key_base64 --password-stdin repo.f5.com
-    EOT
-  }
+  program = ["bash", "-c", <<-EOT
+    set -euo pipefail
+    INPUT=$(cat)
+    KEY=$(echo "$INPUT" | jq -r '.far_auth_key // empty')
+    if [ -z "$KEY" ]; then
+      jq -nc '{status:"skipped",reason:"far_auth_key empty"}'
+      exit 0
+    fi
+    printf '%s' "$KEY" | helm registry login \
+      -u _json_key_base64 --password-stdin repo.f5.com >&2
+    jq -nc '{status:"ok"}'
+  EOT
+  ]
 }
 
 resource "helm_release" "flo" {
@@ -216,6 +218,6 @@ resource "helm_release" "flo" {
     kubectl_manifest.far_secret_flo,
     kubectl_manifest.far_secret_default,
     terraform_data.flo_pre_uninstall,
-    terraform_data.flo_helm_registry_login,
+    data.external.flo_helm_registry_login,
   ]
 }
