@@ -2,6 +2,7 @@ variable "kubeconfig" {
   description = "Base64-encoded kubeconfig for the kind cluster. Wired from kind-cluster-create / kind-cluster-register."
   type        = string
   sensitive   = true
+  default     = ""
 }
 
 variable "namespace" {

@@ -3,7 +3,7 @@
   "module": {
     "name": "kind_cluster_cneinstall",
     "path": "modules/kind-cluster-cneinstall",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "category": "bnk",
     "description": "Apply a CNEInstance CR to a kind cluster with BNK-on-kind defaults: no networkAttachments, pseudoCNI/dynamicRouting off, demoMode on. Mirrors f5-bnk-udf/resources/cne-instance.yaml minus the lab-networks features.",
     "provider": null,
