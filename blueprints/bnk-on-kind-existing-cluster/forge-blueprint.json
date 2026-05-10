@@ -2,7 +2,7 @@
   "schema_version": 1,
   "blueprint": {
     "id": "bnk-on-kind-existing-cluster",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "name": "BNK on kind (existing cluster)",
     "description": "Install BNK onto an existing kind cluster: DPU node labels, cert-manager + BNK CA chain, F5 Lifecycle Operator, CNEInstance, BNK License. For developer / POC environments."
   },
@@ -168,7 +168,7 @@
       "name": "BNK License",
       "description": "Apply the BNK License CR using the jwt_token project secret.",
       "module": "modules/kind-cluster-license",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "depends_on": [
         "cneinstance"
       ],

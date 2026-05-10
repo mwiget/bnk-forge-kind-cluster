@@ -19,8 +19,11 @@ provider "kubectl" {
 # reports applied when the CNEInstance CR is created, but FLO's
 # reconciliation (which deploys the BNK platform components and registers
 # their CRDs, including licenses.k8s.f5net.com) takes additional time.
-# Without this wait, kubectl_manifest below races and fails with
-# "resource [k8s.f5net.com/v1/License] isn't valid for cluster".
+#
+# `kubectl wait` errors immediately if the CRD doesn't exist yet (NotFound),
+# so we poll for existence first, then wait for Established. Total budget
+# 10 minutes — typical FLO reconcile on kind is 2-5 min depending on
+# image pull speed.
 resource "terraform_data" "wait_for_license_crd" {
   triggers_replace = {
     kc_hash = var.kubeconfig != "" ? sha256(var.kubeconfig) : ""
@@ -37,10 +40,27 @@ resource "terraform_data" "wait_for_license_crd" {
       KC=$(mktemp)
       trap 'rm -f "$KC"' EXIT
       printf '%s' "$KUBECONFIG_B64" | base64 -d > "$KC"
-      kubectl --kubeconfig "$KC" wait \
-        --for=condition=Established \
-        crd/licenses.k8s.f5net.com \
-        --timeout=600s
+
+      echo "Polling for licenses.k8s.f5net.com CRD (FLO reconciles CNEInstance to register it)..."
+      for i in $(seq 1 60); do
+        if kubectl --kubeconfig "$KC" get crd licenses.k8s.f5net.com >/dev/null 2>&1; then
+          echo "CRD found after $((i*10))s, waiting for Established condition..."
+          kubectl --kubeconfig "$KC" wait \
+            --for=condition=Established \
+            crd/licenses.k8s.f5net.com \
+            --timeout=120s
+          exit 0
+        fi
+        echo "  attempt $i/60: CRD not yet registered, sleeping 10s..."
+        sleep 10
+      done
+
+      echo "ERROR: licenses.k8s.f5net.com CRD did not appear within 600s." >&2
+      echo "  Check FLO operator status:" >&2
+      echo "    kubectl --kubeconfig <kc> -n ${var.license_namespace} get pods" >&2
+      echo "    kubectl --kubeconfig <kc> get cneinstance -A -o yaml" >&2
+      echo "    kubectl --kubeconfig <kc> -n ${var.license_namespace} logs -l app.kubernetes.io/name=f5-lifecycle-operator" >&2
+      exit 1
     EOT
   }
 }
