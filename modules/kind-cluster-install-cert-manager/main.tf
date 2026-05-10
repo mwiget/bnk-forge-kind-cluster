@@ -30,6 +30,21 @@ provider "helm" {
   }
 }
 
+# alekc/kubectl provider — defers manifest application entirely to apply
+# time (no plan-time CRD validation). Required for the cert-manager
+# ClusterIssuer/Certificate manifests below: their CRDs are registered by
+# the helm_release in this same plan, and hashicorp/kubernetes's
+# kubernetes_manifest would fail with "no matches for kind ClusterIssuer
+# in group cert-manager.io" because plan-time validation runs before
+# helm_release applies.
+provider "kubectl" {
+  host                   = try(local.kc.clusters[0].cluster.server, "")
+  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), "")
+  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), "")
+  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), "")
+  load_config_file       = false
+}
+
 resource "kubernetes_namespace_v1" "cert_manager" {
   metadata {
     name = var.namespace
@@ -70,18 +85,22 @@ resource "time_sleep" "cert_manager_ready" {
 # bootstrap self-signed ClusterIssuer signs a CA Certificate, and a second
 # ClusterIssuer (bnk-ca-cluster-issuer) consumes that Secret. Downstream BNK
 # components (FLO, CNEInstance) reference bnk-ca-cluster-issuer.
-resource "kubernetes_manifest" "selfsigned_cluster_issuer" {
-  manifest = {
+#
+# All three use kubectl_manifest (apply-time validation only) instead of
+# kubernetes_manifest (plan-time validation) because the CRDs they depend
+# on are registered by the cert-manager helm_release in this same plan.
+resource "kubectl_manifest" "selfsigned_cluster_issuer" {
+  yaml_body = yamlencode({
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
     metadata   = { name = var.selfsigned_cluster_issuer_name }
     spec       = { selfSigned = {} }
-  }
+  })
   depends_on = [time_sleep.cert_manager_ready]
 }
 
-resource "kubernetes_manifest" "bnk_ca_certificate" {
-  manifest = {
+resource "kubectl_manifest" "bnk_ca_certificate" {
+  yaml_body = yamlencode({
     apiVersion = "cert-manager.io/v1"
     kind       = "Certificate"
     metadata = {
@@ -98,12 +117,12 @@ resource "kubernetes_manifest" "bnk_ca_certificate" {
         group = "cert-manager.io"
       }
     }
-  }
-  depends_on = [kubernetes_manifest.selfsigned_cluster_issuer]
+  })
+  depends_on = [kubectl_manifest.selfsigned_cluster_issuer]
 }
 
-resource "kubernetes_manifest" "bnk_ca_cluster_issuer" {
-  manifest = {
+resource "kubectl_manifest" "bnk_ca_cluster_issuer" {
+  yaml_body = yamlencode({
     apiVersion = "cert-manager.io/v1"
     kind       = "ClusterIssuer"
     metadata   = { name = var.cluster_issuer_name }
@@ -112,6 +131,6 @@ resource "kubernetes_manifest" "bnk_ca_cluster_issuer" {
         secretName = var.ca_secret_name
       }
     }
-  }
-  depends_on = [kubernetes_manifest.bnk_ca_certificate]
+  })
+  depends_on = [kubectl_manifest.bnk_ca_certificate]
 }

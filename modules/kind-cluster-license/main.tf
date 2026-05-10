@@ -10,6 +10,17 @@ provider "kubernetes" {
   client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
 }
 
+# alekc/kubectl provider — defers manifest application to apply time so
+# the License CR doesn't fail plan-time CRD validation. The License CRD
+# is registered by the FLO helm release earlier in the chain.
+provider "kubectl" {
+  host                   = try(local.kc.clusters[0].cluster.server, "")
+  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), "")
+  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), "")
+  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), "")
+  load_config_file       = false
+}
+
 # License Secret — JWT material.
 resource "kubernetes_secret_v1" "license_jwt" {
   metadata {
@@ -23,8 +34,8 @@ resource "kubernetes_secret_v1" "license_jwt" {
 }
 
 # License CR — references the Secret rather than embedding the JWT inline.
-resource "kubernetes_manifest" "license" {
-  manifest = {
+resource "kubectl_manifest" "license" {
+  yaml_body = yamlencode({
     apiVersion = "k8s.f5.com/v1"
     kind       = "License"
     metadata = {
@@ -38,7 +49,7 @@ resource "kubernetes_manifest" "license" {
         key  = "jwt"
       }
     }
-  }
+  })
 
   depends_on = [kubernetes_secret_v1.license_jwt]
 }
