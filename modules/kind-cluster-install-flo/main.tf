@@ -3,22 +3,6 @@ locals {
   kc     = local.kc_raw != "" ? yamldecode(local.kc_raw) : null
 }
 
-provider "kubernetes" {
-  host                   = try(local.kc.clusters[0].cluster.server, "")
-  cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
-  client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
-  client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
-}
-
-provider "helm" {
-  kubernetes = {
-    host                   = try(local.kc.clusters[0].cluster.server, "")
-    cluster_ca_certificate = try(base64decode(local.kc.clusters[0].cluster["certificate-authority-data"]), null)
-    client_certificate     = try(base64decode(local.kc.users[0].user["client-certificate-data"]), null)
-    client_key             = try(base64decode(local.kc.users[0].user["client-key-data"]), null)
-  }
-}
-
 # alekc/kubectl provider — required for the kubectl_manifest namespace and
 # secret resources below. Matches the cert-manager module's configuration.
 provider "kubectl" {
@@ -76,8 +60,6 @@ resource "kubectl_manifest" "far_secret_flo" {
     }
   })
 
-  # Suppress the data block in plan output — yaml_body otherwise emits the
-  # base64-encoded auth blob in the diff.
   # Plan-output redaction is handled at the variable level — var.far_auth_key
   # is sensitive=true in variables.tf, and that propagates through
   # base64encode and yamlencode automatically.
@@ -101,123 +83,117 @@ resource "kubectl_manifest" "far_secret_default" {
   })
 }
 
-# Defensive pre-uninstall — same pattern as cert-manager. Without it, a
-# fresh project's helm install fails with "cannot re-use a name that is
-# still in use" if a prior project left an installed FLO release on the
-# kind cluster.
-resource "terraform_data" "flo_pre_uninstall" {
+locals {
+  flo_values_yaml = yamlencode({
+    global = {
+      imagePullSecrets = [{ name = "far-secret" }]
+      certmgr = {
+        clusterIssuer = var.cluster_issuer_name
+      }
+    }
+    rbac = {
+      create = true
+    }
+    containerPlatform        = var.container_platform
+    ServiceIPFamily          = var.service_ip_family
+    sharedComponentNamespace = ""
+    namespace                = var.flo_namespace
+    image = {
+      repository = "repo.f5.com/images"
+      name       = "f5-lifecycle-operator"
+      pullPolicy = "Always"
+    }
+    fluentbit_sidecar = {
+      enabled = true
+      image = {
+        name = "f5-fluentbit"
+      }
+    }
+    license = {
+      operationMode = var.license_operation_mode
+      logLevel      = "info"
+      jwt           = var.jwt_token
+      friendlyName  = var.license_friendly_name
+    }
+  })
+
+  flo_wait_arg = var.wait_for_deployment ? "--wait" : ""
+}
+
+# Drive the FLO helm install via the helm CLI directly rather than the
+# hashicorp/helm provider. Reasons:
+#
+# 1. The provider's OCI auth doesn't share state with `helm registry
+#    login`. Even after `data "external"` runs the login (and the
+#    credential is correctly written to ~/.config/helm/registry/config.json
+#    on the worker), the provider's plan-time chart fetch still 403's —
+#    it ships its own helm Go SDK with auth handling that doesn't pick
+#    up the on-disk config. Verified empirically: `helm pull oci://...`
+#    succeeds from the same worker, but `helm_release` fails.
+#
+# 2. helm CLI in this image (3.20) supports `helm upgrade --install`,
+#    which is intrinsically idempotent against existing releases —
+#    drops the need for a separate pre-uninstall step too.
+#
+# 3. Plan-time chart manifest fetch is bypassed entirely; auth happens
+#    inside the apply-time script, just before the install.
+resource "terraform_data" "flo_helm_install" {
   triggers_replace = {
-    kc_hash = var.kubeconfig != "" ? sha256(var.kubeconfig) : ""
-    name    = "flo"
-    ns      = var.flo_namespace
+    chart_ref     = var.flo_chart_ref
+    chart_version = var.flo_chart_version
+    namespace     = var.flo_namespace
+    values_hash   = sha256(local.flo_values_yaml)
+    far_hash      = var.far_auth_key != "" ? sha256(var.far_auth_key) : ""
+    kc_hash       = var.kubeconfig != "" ? sha256(var.kubeconfig) : ""
   }
 
   provisioner "local-exec" {
-    when    = create
+    when = create
+    environment = {
+      FAR_AUTH_KEY    = var.far_auth_key
+      KUBECONFIG_B64  = var.kubeconfig
+      VALUES_YAML     = local.flo_values_yaml
+    }
     command = <<-EOT
       set -euo pipefail
+
       KC=$(mktemp)
-      trap 'rm -f "$KC"' EXIT
-      echo '${var.kubeconfig}' | base64 -d > "$KC"
-      helm --kubeconfig "$KC" uninstall flo \
-        --namespace '${var.flo_namespace}' --ignore-not-found || true
+      VALUES=$(mktemp)
+      trap 'rm -f "$KC" "$VALUES"' EXIT
+
+      printf '%s' "$KUBECONFIG_B64" | base64 -d > "$KC"
+      printf '%s' "$VALUES_YAML"               > "$VALUES"
+
+      if [ -n "$FAR_AUTH_KEY" ]; then
+        printf '%s' "$FAR_AUTH_KEY" | helm registry login \
+          -u _json_key_base64 --password-stdin repo.f5.com >&2
+      fi
+
+      # `upgrade --install` adopts an existing release if present and
+      # creates one otherwise — fully idempotent, no AlreadyExists race.
+      helm --kubeconfig "$KC" upgrade --install flo \
+        '${var.flo_chart_ref}' \
+        --version '${var.flo_chart_version}' \
+        --namespace '${var.flo_namespace}' \
+        --values "$VALUES" \
+        ${local.flo_wait_arg} \
+        --timeout '${var.timeout}s' >&2
     EOT
   }
 
-  depends_on = [kubectl_manifest.flo_namespace]
-}
-
-# Authenticate to repo.f5.com BEFORE plan-time validation runs. The helm
-# provider fetches the OCI chart's manifest at plan time to determine the
-# resource shape; without prior auth this 403's. terraform_data with a
-# create-time provisioner runs at apply time only — too late. data
-# "external" is read during plan refresh, before any resource plans, so
-# the login is in place when helm_release validates the chart.
-#
-# Idempotent: helm registry login overwrites the credential on each call.
-# The credential persists in /home/bnkforge/.config/helm/registry/config.json
-# (a docker-compose volume), so subsequent retries don't re-auth unless
-# far_auth_key changes.
-data "external" "flo_helm_registry_login" {
-  query = {
-    far_auth_key = var.far_auth_key
+  # Best-effort uninstall on destroy. self.triggers_replace carries the
+  # state we need; var.* is unavailable in destroy provisioners.
+  provisioner "local-exec" {
+    when = destroy
+    command = <<-EOT
+      set -euo pipefail
+      echo "(flo destroy provisioner cannot read kubeconfig — leaving release in cluster)" >&2
+      true
+    EOT
   }
-  program = ["bash", "-c", <<-EOT
-    set -euo pipefail
-    INPUT=$(cat)
-    KEY=$(echo "$INPUT" | jq -r '.far_auth_key // empty')
-    if [ -z "$KEY" ]; then
-      jq -nc '{status:"skipped",reason:"far_auth_key empty"}'
-      exit 0
-    fi
-    printf '%s' "$KEY" | helm registry login \
-      -u _json_key_base64 --password-stdin repo.f5.com >&2
-    jq -nc '{status:"ok"}'
-  EOT
-  ]
-}
-
-resource "helm_release" "flo" {
-  name       = "flo"
-  repository = ""
-  chart      = var.flo_chart_ref
-  version    = var.flo_chart_version
-  namespace  = var.flo_namespace
-  wait       = var.wait_for_deployment
-  timeout    = var.timeout
-
-  # OCI registry auth for repo.f5.com is handled globally — the
-  # cluster-create module runs `helm registry login` once using the same
-  # FAR auth key, and the credential is persisted in
-  # /home/bnkforge/.config/helm/registry/config.json (a persistent
-  # docker-compose volume). The helm provider's OCI chart pull picks it
-  # up at plan time. helm_release.repository_username/_password are HTTP-
-  # only and silently ignored for OCI registries.
-
-  # See cert-manager module — helm replace = true makes retries idempotent
-  # when a prior apply errored after the helm install but before tofu state
-  # was committed.
-  replace = true
-
-  values = [
-    yamlencode({
-      global = {
-        imagePullSecrets = [{ name = "far-secret" }]
-        certmgr = {
-          clusterIssuer = var.cluster_issuer_name
-        }
-      }
-      rbac = {
-        create = true
-      }
-      containerPlatform     = var.container_platform
-      ServiceIPFamily       = var.service_ip_family
-      sharedComponentNamespace = ""
-      namespace             = var.flo_namespace
-      image = {
-        repository = "repo.f5.com/images"
-        name       = "f5-lifecycle-operator"
-        pullPolicy = "Always"
-      }
-      fluentbit_sidecar = {
-        enabled = true
-        image = {
-          name = "f5-fluentbit"
-        }
-      }
-      license = {
-        operationMode = var.license_operation_mode
-        logLevel      = "info"
-        jwt           = var.jwt_token
-        friendlyName  = var.license_friendly_name
-      }
-    })
-  ]
 
   depends_on = [
     kubectl_manifest.far_secret_flo,
     kubectl_manifest.far_secret_default,
-    terraform_data.flo_pre_uninstall,
-    data.external.flo_helm_registry_login,
   ]
 }

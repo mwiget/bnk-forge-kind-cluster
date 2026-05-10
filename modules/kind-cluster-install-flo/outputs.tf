@@ -6,12 +6,14 @@ output "flo_namespace" {
 
 output "flo_release_name" {
   description = "Helm release name for FLO."
-  value       = helm_release.flo.name
+  value       = "flo"
+  depends_on  = [terraform_data.flo_helm_install]
 }
 
 output "flo_release_version" {
   description = "Installed FLO chart version."
-  value       = helm_release.flo.version
+  value       = var.flo_chart_version
+  depends_on  = [terraform_data.flo_helm_install]
 }
 
 output "flo_cluster_issuer_name" {
