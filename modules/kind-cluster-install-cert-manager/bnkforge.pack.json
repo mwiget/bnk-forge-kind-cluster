@@ -3,7 +3,7 @@
   "module": {
     "name": "kind_cluster_install_cert_manager",
     "path": "modules/kind-cluster-install-cert-manager",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "category": "infra",
     "description": "Install cert-manager onto a kind cluster via the Jetstack Helm chart, plus the self-signed and bnk-ca-cluster-issuer chain BNK consumes.",
     "provider": null,
@@ -45,7 +45,6 @@
         "type": "string",
         "description": "Base64-encoded kubeconfig for the kind cluster. Auto-wired by the bnk-forge dependency graph from kind-cluster-create or kind-cluster-register.",
         "source": "user",
-        "sensitive": true,
         "default": ""
       },
       {

@@ -3,7 +3,7 @@
   "module": {
     "name": "kind_cluster_license",
     "path": "modules/kind-cluster-license",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "category": "bnk",
     "description": "Apply a BNK License CR to a kind cluster using the jwt_token project secret. No IBM Cloud Object Storage path.",
     "provider": null,
@@ -49,7 +49,6 @@
         "type": "string",
         "description": "Base64-encoded kubeconfig. Auto-wired by the bnk-forge dependency graph from kind-cluster-create or kind-cluster-register.",
         "source": "user",
-        "sensitive": true,
         "default": ""
       },
       {
