@@ -51,6 +51,23 @@ resource "terraform_data" "cluster" {
           --config '${local.kind_config_path}' \
           ${var.kind_node_image != "" ? "--image '${var.kind_node_image}'" : ""}
       fi
+
+      # Attach the bnk-forge containers to the kind Docker network so the
+      # celery worker can resolve <cluster_name>-control-plane via Docker
+      # DNS — that's the server URL emitted by `kind get kubeconfig --internal`,
+      # and downstream modules' kubernetes/helm providers need to reach it.
+      # Without this attachment, every downstream apply fails with
+      # "dial tcp: lookup <cluster_name>-control-plane on 127.0.0.11:53: no such host".
+      ATTACHED=$(docker network inspect kind -f '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || echo '')
+      for C in bnk-forge-backend bnk-forge-celery-worker bnk-forge-celery-worker-2 bnk-forge-celery-beat; do
+        if echo "$ATTACHED" | grep -qw "$C"; then
+          echo "(skip) $C already attached to the kind network"
+        elif docker ps --format '{{.Names}}' | grep -qx "$C"; then
+          docker network connect kind "$C" && echo "connected $C to kind network" || echo "(warn) failed to connect $C"
+        else
+          echo "(skip) $C is not running"
+        fi
+      done
     EOT
 
     environment = local.exec_env
